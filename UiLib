@@ -22,10 +22,10 @@ local Library do
         FadeSpeed = 0.2,
 
         Folders = {
-            Directory = "luna",
-            Configs = "luna/Configs",
-            Assets = "luna/Assets",
-			Sounds = "luna/Sounds",
+            Directory = "Veil",
+            Configs = "Veil/Configs",
+            Assets = "Veil/Assets",
+			Sounds = "Veil/Sounds",
         },
 
         -- Ignore below
