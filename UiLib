@@ -3069,11 +3069,12 @@ do
                 Parent = Library.Holder.Instance,
                 Name = "\0",
                 Size = UDim2New(0, 295, 0, 21),
-                Position = UDim2New(0, 0, 0.8, 0),
+                Position = UDim2New(0.5, 0, 0.8, 0),
+                AnchorPoint = Vector2New(0.5, 0),
                 BorderColor3 = FromRGB(0, 0, 0),
                 BorderSizePixel = 0,
                 ZIndex = 6,
-                AutomaticSize = Enum.AutomaticSize.Y,
+                AutomaticSize = Enum.AutomaticSize.XY,
                 BackgroundColor3 = FromRGB(17, 21, 27)
             })  Items["TargetHud"]:AddToTheme({BackgroundColor3 = "Background 1"})
 
@@ -3149,7 +3150,7 @@ do
                 Position = UDim2New(0, 8, 0, 32),
                 Size = UDim2New(1, -16, 0, 0),
                 BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.Y,
+                AutomaticSize = Enum.AutomaticSize.XY,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
             
@@ -3186,6 +3187,7 @@ do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 77, 0, 0),
                 BorderSizePixel = 0,
+                AutomaticSize = Enum.AutomaticSize.X,
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Username"]:AddToTheme({TextColor3 = "Text"})
@@ -3203,6 +3205,7 @@ do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 77, 0, 15),
                 BorderSizePixel = 0,
+                AutomaticSize = Enum.AutomaticSize.X,
                 TextSize = 13,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Distance"]:AddToTheme({TextColor3 = "Inactive Text"})
@@ -3220,6 +3223,7 @@ do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 77, 0, 30),
                 BorderSizePixel = 0,
+                AutomaticSize = Enum.AutomaticSize.X,
                 TextSize = 13,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Tool"]:AddToTheme({TextColor3 = "Inactive Text"})
