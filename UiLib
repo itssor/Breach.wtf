@@ -3342,10 +3342,27 @@ do
             return NewBar
         end
         
+        local TrackingPlayer = nil
+        local TrackingBar = nil
+
         function TargetHud:SetPlayer(Player)
-            local AvatarContent = Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-            Items["Avatar"].Instance.Image = AvatarContent
-            Items["Username"].Instance.Text = Player.DisplayName .. " (@"..Player.Name..")"
+            TrackingPlayer = Player
+            if Player then
+                Library:Thread(function()
+                    local Success, AvatarContent = pcall(function()
+                        return Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+                    end)
+                    if Success then
+                        Items["Avatar"].Instance.Image = AvatarContent
+                    end
+                end)
+                Items["Username"].Instance.Text = Player.DisplayName .. " (@"..Player.Name..")"
+            else
+                Items["Username"].Instance.Text = "-- (@--)"
+                Items["Distance"].Instance.Text = "Distance: --"
+                Items["Tool"].Instance.Text = "Tool: --"
+                Items["Avatar"].Instance.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+            end
         end
 
         function TargetHud:SetDistance(Distance)
@@ -3356,6 +3373,10 @@ do
             Items["Tool"].Instance.Text = "Tool: " .. tostring(ToolName or "None")
         end
 
+        function TargetHud:SetHealthBar(Bar)
+            TrackingBar = Bar
+        end
+
         function TargetHud:SetVisibility(Bool)
             Items["TargetHud"].Instance.Visible = Bool
         end
@@ -3363,6 +3384,30 @@ do
         function TargetHud:SetPosition(Position)
             Items["TargetHud"].Instance.Position = Position
         end
+
+        Library:Connect(RunService.RenderStepped, function()
+            if TrackingPlayer and TrackingPlayer.Parent then
+                local char = TrackingPlayer.Character
+                if char then
+                    -- Update Health
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum and TrackingBar then
+                        TrackingBar:SetPercentage((hum.Health / hum.MaxHealth) * 100)
+                    end
+                    
+                    -- Update Tool
+                    local tool = char:FindFirstChildOfClass("Tool")
+                    TargetHud:SetTool(tool and tool.Name or "None")
+                    
+                    -- Update Distance
+                    local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
+                    if root then
+                        local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                        TargetHud:SetDistance(dist)
+                    end
+                end
+            end
+        end)
 
         return TargetHud 
     end
