@@ -3189,6 +3189,40 @@ do
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Username"]:AddToTheme({TextColor3 = "Text"})
+
+            Items["Distance"] = Instances:Create("TextLabel", {
+                Parent = Items["Content"].Instance,
+                Name = "\0",
+                FontFace = Library.Font,
+                TextColor3 = FromRGB(200, 200, 200),
+                BorderColor3 = FromRGB(0, 0, 0),
+                Text = "Distance: --",
+                Size = UDim2New(1, -77, 0, 15),
+                ZIndex = 6,
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Position = UDim2New(0, 77, 0, 15),
+                BorderSizePixel = 0,
+                TextSize = 13,
+                BackgroundColor3 = FromRGB(255, 255, 255)
+            })  Items["Distance"]:AddToTheme({TextColor3 = "Inactive Text"})
+
+            Items["Tool"] = Instances:Create("TextLabel", {
+                Parent = Items["Content"].Instance,
+                Name = "\0",
+                FontFace = Library.Font,
+                TextColor3 = FromRGB(200, 200, 200),
+                BorderColor3 = FromRGB(0, 0, 0),
+                Text = "Tool: --",
+                Size = UDim2New(1, -77, 0, 15),
+                ZIndex = 6,
+                BackgroundTransparency = 1,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                Position = UDim2New(0, 77, 0, 30),
+                BorderSizePixel = 0,
+                TextSize = 13,
+                BackgroundColor3 = FromRGB(255, 255, 255)
+            })  Items["Tool"]:AddToTheme({TextColor3 = "Inactive Text"})
             
             Instances:Create("UIPadding", {
                 Parent = Items["TargetHud"].Instance,
@@ -3312,6 +3346,14 @@ do
             local AvatarContent = Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
             Items["Avatar"].Instance.Image = AvatarContent
             Items["Username"].Instance.Text = Player.DisplayName .. " (@"..Player.Name..")"
+        end
+
+        function TargetHud:SetDistance(Distance)
+            Items["Distance"].Instance.Text = "Distance: " .. tostring(Distance) .. " studs"
+        end
+
+        function TargetHud:SetTool(ToolName)
+            Items["Tool"].Instance.Text = "Tool: " .. tostring(ToolName or "None")
         end
 
         function TargetHud:SetVisibility(Bool)
