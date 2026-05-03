@@ -3393,10 +3393,30 @@ do
             if TrackingPlayer and TrackingPlayer.Parent then
                 local char = TrackingPlayer.Character
                 if char then
-                    -- Update Health
+                    -- Update Health (Robust detection)
                     local hum = char:FindFirstChildOfClass("Humanoid")
                     if hum and TrackingBar then
-                        TrackingBar:SetPercentage((hum.Health / hum.MaxHealth) * 100)
+                        local hp = hum.Health
+                        local max = hum.MaxHealth
+                        
+                        -- Check Attributes
+                        if char:GetAttribute("Health") then
+                            hp = char:GetAttribute("Health")
+                            max = char:GetAttribute("MaxHealth") or 100
+                        elseif hum:GetAttribute("Health") then
+                            hp = hum:GetAttribute("Health")
+                            max = hum:GetAttribute("MaxHealth") or 100
+                        end
+                        
+                        -- Check Value Objects
+                        local hv = char:FindFirstChild("Health") or hum:FindFirstChild("Health")
+                        if hv and (hv:IsA("NumberValue") or hv:IsA("IntValue")) then
+                            hp = hv.Value
+                            local mv = char:FindFirstChild("MaxHealth") or hum:FindFirstChild("MaxHealth")
+                            max = mv and mv.Value or 100
+                        end
+
+                        TrackingBar:SetPercentage(math.clamp((hp / max) * 100, 0, 100))
                     end
                     
                     -- Update Tool
