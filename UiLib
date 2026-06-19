@@ -22,10 +22,10 @@ local Library do
         FadeSpeed = 0.2,
 
         Folders = {
-            Directory = "Veil",
-            Configs = "Veil/Configs",
-            Assets = "Veil/Assets",
-			Sounds = "Veil/Sounds",
+            Directory = "breach.wtf",
+            Configs = "breach.wtf/Configs",
+            Assets = "breach.wtf/Assets",
+			Sounds = "breach.wtf/Sounds",
         },
 
         -- Ignore below
@@ -771,7 +771,7 @@ Library.SafeCall = function(self, Function, ...)
     local Success, Result = pcall(Function, TableUnpack(Arguements))
 
     if not Success then
-        LocalPlayer:Kick("Veil Callback Error: " .. tostring(Result))
+        LocalPlayer:Kick("Breach.wtf Callback Error: " .. tostring(Result))
         return false
     end
 
@@ -3069,12 +3069,11 @@ do
                 Parent = Library.Holder.Instance,
                 Name = "\0",
                 Size = UDim2New(0, 295, 0, 21),
-                Position = UDim2New(0.5, 0, 0.8, 0),
-                AnchorPoint = Vector2New(0.5, 0),
+                Position = UDim2New(0, 0, 0.8, 0),
                 BorderColor3 = FromRGB(0, 0, 0),
                 BorderSizePixel = 0,
                 ZIndex = 6,
-                AutomaticSize = Enum.AutomaticSize.XY,
+                AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundColor3 = FromRGB(17, 21, 27)
             })  Items["TargetHud"]:AddToTheme({BackgroundColor3 = "Background 1"})
 
@@ -3150,7 +3149,7 @@ do
                 Position = UDim2New(0, 8, 0, 32),
                 Size = UDim2New(1, -16, 0, 0),
                 BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.XY,
+                AutomaticSize = Enum.AutomaticSize.Y,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })
             
@@ -3187,46 +3186,9 @@ do
                 TextXAlignment = Enum.TextXAlignment.Left,
                 Position = UDim2New(0, 77, 0, 0),
                 BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.X,
                 TextSize = 14,
                 BackgroundColor3 = FromRGB(255, 255, 255)
             })  Items["Username"]:AddToTheme({TextColor3 = "Text"})
-
-            Items["Distance"] = Instances:Create("TextLabel", {
-                Parent = Items["Content"].Instance,
-                Name = "\0",
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(200, 200, 200),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "Distance: --",
-                Size = UDim2New(1, -77, 0, 15),
-                ZIndex = 6,
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 77, 0, 15),
-                BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.X,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Distance"]:AddToTheme({TextColor3 = "Inactive Text"})
-
-            Items["Tool"] = Instances:Create("TextLabel", {
-                Parent = Items["Content"].Instance,
-                Name = "\0",
-                FontFace = Library.Font,
-                TextColor3 = FromRGB(200, 200, 200),
-                BorderColor3 = FromRGB(0, 0, 0),
-                Text = "Tool: --",
-                Size = UDim2New(1, -77, 0, 15),
-                ZIndex = 6,
-                BackgroundTransparency = 1,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Position = UDim2New(0, 77, 0, 30),
-                BorderSizePixel = 0,
-                AutomaticSize = Enum.AutomaticSize.X,
-                TextSize = 13,
-                BackgroundColor3 = FromRGB(255, 255, 255)
-            })  Items["Tool"]:AddToTheme({TextColor3 = "Inactive Text"})
             
             Instances:Create("UIPadding", {
                 Parent = Items["TargetHud"].Instance,
@@ -3346,39 +3308,10 @@ do
             return NewBar
         end
         
-        local TrackingPlayer = nil
-        local TrackingBar = nil
-
         function TargetHud:SetPlayer(Player)
-            TrackingPlayer = Player
-            if Player then
-                Library:Thread(function()
-                    local Success, AvatarContent = pcall(function()
-                        return Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
-                    end)
-                    if Success then
-                        Items["Avatar"].Instance.Image = AvatarContent
-                    end
-                end)
-                Items["Username"].Instance.Text = Player.DisplayName .. " (@"..Player.Name..")"
-            else
-                Items["Username"].Instance.Text = "-- (@--)"
-                Items["Distance"].Instance.Text = "Distance: --"
-                Items["Tool"].Instance.Text = "Tool: --"
-                Items["Avatar"].Instance.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-            end
-        end
-
-        function TargetHud:SetDistance(Distance)
-            Items["Distance"].Instance.Text = "Distance: " .. tostring(Distance) .. " studs"
-        end
-
-        function TargetHud:SetTool(ToolName)
-            Items["Tool"].Instance.Text = "Tool: " .. tostring(ToolName or "None")
-        end
-
-        function TargetHud:SetHealthBar(Bar)
-            TrackingBar = Bar
+            local AvatarContent = Players:GetUserThumbnailAsync(Player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size420x420)
+            Items["Avatar"].Instance.Image = AvatarContent
+            Items["Username"].Instance.Text = Player.DisplayName .. " (@"..Player.Name..")"
         end
 
         function TargetHud:SetVisibility(Bool)
@@ -3388,50 +3321,6 @@ do
         function TargetHud:SetPosition(Position)
             Items["TargetHud"].Instance.Position = Position
         end
-
-        Library:Connect(RunService.RenderStepped, function()
-            if TrackingPlayer and TrackingPlayer.Parent then
-                local char = TrackingPlayer.Character
-                if char then
-                    -- Update Health (Robust detection)
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum and TrackingBar then
-                        local hp = hum.Health
-                        local max = hum.MaxHealth
-                        
-                        -- Check Attributes
-                        if char:GetAttribute("Health") then
-                            hp = char:GetAttribute("Health")
-                            max = char:GetAttribute("MaxHealth") or 100
-                        elseif hum:GetAttribute("Health") then
-                            hp = hum:GetAttribute("Health")
-                            max = hum:GetAttribute("MaxHealth") or 100
-                        end
-                        
-                        -- Check Value Objects
-                        local hv = char:FindFirstChild("Health") or hum:FindFirstChild("Health")
-                        if hv and (hv:IsA("NumberValue") or hv:IsA("IntValue")) then
-                            hp = hv.Value
-                            local mv = char:FindFirstChild("MaxHealth") or hum:FindFirstChild("MaxHealth")
-                            max = mv and mv.Value or 100
-                        end
-
-                        TrackingBar:SetPercentage(math.clamp((hp / max) * 100, 0, 100))
-                    end
-                    
-                    -- Update Tool
-                    local tool = char:FindFirstChildOfClass("Tool")
-                    TargetHud:SetTool(tool and tool.Name or "None")
-                    
-                    -- Update Distance
-                    local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
-                    if root then
-                        local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
-                        TargetHud:SetDistance(dist)
-                    end
-                end
-            end
-        end)
 
         return TargetHud 
     end
