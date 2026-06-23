@@ -772,7 +772,9 @@ Library.SafeCall = function(self, Function, ...)
     local Success, Result = pcall(Function, TableUnpack(Arguements))
 
     if not Success then
-        LocalPlayer:Kick("Breach.wtf Callback Error: " .. tostring(Result))
+        -- Swallow callback errors instead of kicking. A Lua error must never
+        -- disconnect the user; that's a brutal failure mode and a terrible
+        -- tell. Log nothing (OPSEC), just keep running.
         return false
     end
 
