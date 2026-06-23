@@ -88,9 +88,9 @@
             text = rgb(180, 180, 180),
             text_outline = rgb(0, 0, 0),
             background = rgb(20, 20, 20),
-            ["1"] = hex("#245771"), 
-            ["2"] = hex("#215D63"),
-            ["3"] = hex("#1E6453"),
+            ["1"] = hex("#3D2E7C"), 
+            ["2"] = hex("#5B4A9E"),
+            ["3"] = hex("#6B5BA6"),
         },
 
         utility = {
@@ -2491,52 +2491,7 @@
                 section:button({name = "Delete", callback = function() delfile(library.directory .. "/configs/" .. flags["config_name_text"] .. ".cfg")  library:update_config_list() end})
 
                 local section = main:column({}):section({name = "Other", size = 1, default = true})
-                section:keybind({name = "Menu bind", callback = function(bool) window.toggle_menu(bool) end, default = true})
-                section:colorpicker({name = "Gradient 1", callback = function(color)                    
-                    library:update_theme("1", color)
-
-                    library.gradient.Color = rgbseq{
-                        rgbkey(0, themes.preset["1"]), 
-                        rgbkey(0.5, themes.preset["2"]),
-                        rgbkey(1, themes.preset["3"]),
-                    };
-
-                    library.watermark_gradient.Color = rgbseq{
-                        rgbkey(0, themes.preset["1"]), 
-                        rgbkey(0.5, themes.preset["2"]),
-                        rgbkey(1, themes.preset["3"]),
-                    };
-                end, color = themes.preset["1"]})
-                section:colorpicker({name = "Gradient 2", callback = function(color)
-                    library:update_theme("2", color)
-
-                    library.gradient.Color = rgbseq{
-                        rgbkey(0, themes.preset["1"]), 
-                        rgbkey(0.5, themes.preset["2"]),
-                        rgbkey(1, themes.preset["3"]),
-                    };
-
-                    library.watermark_gradient.Color = rgbseq{
-                        rgbkey(0, themes.preset["1"]), 
-                        rgbkey(0.5, themes.preset["2"]),
-                        rgbkey(1, themes.preset["3"]),
-                    };
-                end, color = themes.preset["2"]})
-                section:colorpicker({name = "Gradient 3", callback = function(color)
-                    library:update_theme("3", color)
-
-                    library.gradient.Color = rgbseq{
-                        rgbkey(0, themes.preset["1"]), 
-                        rgbkey(0.5, themes.preset["2"]),
-                        rgbkey(1, themes.preset["3"]),
-                    };
-
-                    library.watermark_gradient.Color = rgbseq{
-                        rgbkey(0, themes.preset["1"]), 
-                        rgbkey(0.5, themes.preset["2"]),
-                        rgbkey(1, themes.preset["3"]),
-                    };
-                end, color = themes.preset["3"]})
+                section:keybind({name = "Menu bind", callback = function(bool) window.toggle_menu(bool) end, default = Enum.KeyCode.RightShift})
 
                 main:column({})
             end
