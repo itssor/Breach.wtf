@@ -736,8 +736,9 @@ Library.Unload = function(self)
         self.Holder:Clean()
     end
 
-    Library = nil 
-    getgenv().Library = nil
+    Library = nil
+    -- note: removed getgenv() reference (AC fenv check). caller-local Library only.
+    if _BREACH_EXPORTS then _BREACH_EXPORTS.Library = nil end
 end
 
 Library.GetImage = function(self, Image)
