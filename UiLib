@@ -611,7 +611,9 @@
                 window_outline.Visible = bool 
             end
 
-            return setmetatable(cfg, library)
+            local result = setmetatable(cfg, library)
+            result:home_tab()
+            return result
         end 
 
         function library:tab(properties)
@@ -720,7 +722,9 @@
             pcall(load_assets)
 
             -- Expose home_tab builder on the library so callers can do window:home_tab()
-            function library:home_tab(window)
+            -- Called as window:home_tab() so self IS the window cfg
+            function library:home_tab()
+                local window = self
                 -- force-create a tab named "Home" that opens first
                 local tab_cfg = {
                     name = "Home",
@@ -750,6 +754,7 @@
                     BorderSizePixel = 0;
                     BackgroundColor3 = rgb(0, 0, 0);
                     Visible = false;
+                    ClipsDescendants = true;
                 })
 
                 -- ── Logo (left, final resting position) ──────────────────────────
@@ -865,34 +870,37 @@
 
                 -- ── Animation sequence ────────────────────────────────────────────
                 task.spawn(function()
-                    -- wait one frame for the Page to be visible & sized
-                    task.wait(0.05)
+                    run.Heartbeat:Wait()
 
-                    -- Step 1: logo drops from above into screen-centre
-                    tween_service:Create(logo_holder, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                        Position = dim2(0.5, 0, 0.5, 0)
-                    }):Play()
+                    -- Step 1: logo drops from above into centre
+                    local t1 = tween_service:Create(logo_holder,
+                        TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                        { Position = dim2(0.5, 0, 0.5, 0) })
+                    t1:Play()
+                    t1.Completed:Wait()
 
-                    task.wait(0.75)
+                    -- hold at centre for 0.2s
+                    local hold = tween_service:Create(logo_holder,
+                        TweenInfo.new(0.2), { BackgroundTransparency = 1 })
+                    hold:Play()
+                    hold.Completed:Wait()
 
-                    -- Step 2: logo slides semi-fast left to its final resting spot,
-                    --         text fades in simultaneously (trail effect)
-                    tween_service:Create(logo_holder, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                        Position = dim2(0.18, 0, 0.5, 0)
-                    }):Play()
-                    tween_service:Create(trail_text, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                        TextTransparency = 0
-                    }):Play()
+                    -- Step 2: logo slides left; text fades in as the trail
+                    local t2a = tween_service:Create(logo_holder,
+                        TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                        { Position = dim2(0.18, 0, 0.5, 0) })
+                    local t2b = tween_service:Create(trail_text,
+                        TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                        { TextTransparency = 0 })
+                    t2a:Play()
+                    t2b:Play()
+                    t2a.Completed:Wait()
 
-                    task.wait(0.38)
-
-                    -- Step 3: discord icon pops in on the right
-                    tween_service:Create(discord_btn, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                        ImageTransparency = 0
-                    }):Play()
-
-                    -- Animation done — home page now permanently shows the final state:
-                    -- logo left | "Breach.WTF" centre | discord icon right
+                    -- Step 3: discord icon pops in
+                    local t3 = tween_service:Create(discord_btn,
+                        TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+                        { ImageTransparency = 0 })
+                    t3:Play()
                 end)
 
                 return tab_cfg
