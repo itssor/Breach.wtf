@@ -2137,7 +2137,7 @@
                     ignore_key = options.ignore or false, 
 
                     key = options.key or nil, 
-                    mode = options.mode or "toggle",
+                    mode = options.mode or "Toggle",
                     active = options.default or false, 
 
                     hold_instances = {},
@@ -2387,12 +2387,14 @@
 
                     library:connection(uis.InputBegan, function(input, game_event) 
                         if not game_event then 
-                            if input.KeyCode == cfg.key then 
+                            local selected_key = input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode or input.UserInputType
+                            if selected_key == cfg.key then 
                                 if cfg.mode == "Toggle" then 
                                     cfg.active = not cfg.active
                                     cfg.set(cfg.active)
                                 elseif cfg.mode == "Hold" then 
-                                    cfg.set(true)
+                                    cfg.active = true
+                                    cfg.callback(true)
                                 end
                             end
                         end
@@ -2490,7 +2492,7 @@
                 section:button({name = "Delete", callback = function() delfile(library.directory .. "/configs/" .. flags["config_name_text"] .. ".cfg")  library:update_config_list() end})
 
                 local section = main:column({}):section({name = "Other", size = 1, default = true})
-                section:keybind({name = "Menu bind", callback = function(bool) window.toggle_menu(bool) end, default = Enum.KeyCode.RightShift})
+                section:keybind({name = "Menu bind", callback = function(bool) window.toggle_menu(bool) end, key = Enum.KeyCode.RightShift})
 
                 main:column({})
             end
