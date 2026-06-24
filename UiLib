@@ -83,14 +83,14 @@
     
     local themes = {
         preset = {
-            outline = rgb(10, 10, 10),
-            inline = rgb(35, 35, 35),
-            text = rgb(180, 180, 180),
+            outline = rgb(8, 8, 8),
+            inline = rgb(22, 22, 22),
+            text = rgb(210, 210, 210),
             text_outline = rgb(0, 0, 0),
-            background = rgb(20, 20, 20),
-            ["1"] = hex("#3D2E7C"), 
-            ["2"] = hex("#5B4A9E"),
-            ["3"] = hex("#6B5BA6"),
+            background = rgb(10, 10, 10),
+            ["1"] = rgb(30, 30, 30),
+            ["2"] = rgb(60, 60, 60),
+            ["3"] = rgb(110, 110, 110),
         },
 
         utility = {
@@ -760,7 +760,7 @@
                 -- ── Logo (left, final resting position) ──────────────────────────
                 local logo_holder = library:create("Frame", {
                     Parent = Page;
-                    Size = dim2(0, 60, 0, 60);
+                    Size = dim2(0, 80, 0, 80);
                     AnchorPoint = vec2(0.5, 0.5);
                     -- starts off-screen above the page
                     Position = dim2(0.18, 0, -0.5, 0);
@@ -774,20 +774,12 @@
                     Size = dim2(1, 0, 1, 0);
                     BackgroundTransparency = 1;
                     Image = logo_asset or "";
+                    ImageColor3 = rgb(255, 255, 255);
                     ScaleType = Enum.ScaleType.Fit;
                     ZIndex = 3;
                 })
 
-                library:create("UICorner", {
-                    CornerRadius = dim(0, 6);
-                    Parent = logo_holder;
-                })
-
-                library:create("UIStroke", {
-                    Color = themes.preset["1"];
-                    Thickness = 2;
-                    Parent = logo_holder;
-                })
+                -- no border/corner on logo: image is transparent-bg star, no square needed
 
                 -- ── "Breach.WTF" centre text ─────────────────────────────────────
                 local trail_text = library:create("TextLabel", {
@@ -807,9 +799,9 @@
 
                 library:create("UIGradient", {
                     Color = rgbseq{
-                        rgbkey(0, themes.preset["1"]),
-                        rgbkey(0.5, themes.preset["2"]),
-                        rgbkey(1, rgb(220, 220, 220)),
+                        rgbkey(0, rgb(120, 120, 120)),
+                        rgbkey(0.5, rgb(200, 200, 200)),
+                        rgbkey(1, rgb(255, 255, 255)),
                     };
                     Parent = trail_text;
                 })
