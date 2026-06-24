@@ -701,165 +701,202 @@
             Parent = gethui() 
         })
 
-        -- Breach.WTF Loading Animation (splash + home screen)
+        -- Breach.WTF home tab with loading animation
+        -- Images are loaded via HttpGet+getcustomasset, same pattern as fonts
         do
-            local splash_gui = Instance.new("ScreenGui")
-            splash_gui.Name = "BreachSplash"
-            splash_gui.IgnoreGuiInset = true
-            splash_gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-            splash_gui.DisplayOrder = 999
-            splash_gui.Parent = gethui()
+            local logo_asset, discord_asset
 
-            -- Full-screen dark background
-            local bg = Instance.new("Frame")
-            bg.Size = dim2(1, 0, 1, 0)
-            bg.Position = dim2(0, 0, 0, 0)
-            bg.BackgroundColor3 = themes.preset.background
-            bg.BorderSizePixel = 0
-            bg.ZIndex = 1
-            bg.Parent = splash_gui
+            local function load_assets()
+                if not isfile("breach_logo.png") then
+                    writefile("breach_logo.png", game:HttpGet("https://raw.githubusercontent.com/itssor/Breach.wtf/main/Assets/logo.jpg"))
+                end
+                if not isfile("breach_discord.png") then
+                    writefile("breach_discord.png", game:HttpGet("https://raw.githubusercontent.com/itssor/Breach.wtf/main/Assets/discord.png"))
+                end
+                logo_asset    = getcustomasset("breach_logo.png")
+                discord_asset = getcustomasset("breach_discord.png")
+            end
 
-            -- Gradient overlay matching library theme
-            local bg_gradient = Instance.new("UIGradient")
-            bg_gradient.Color = rgbseq{
-                rgbkey(0, themes.preset["1"]),
-                rgbkey(0.5, themes.preset["2"]),
-                rgbkey(1, themes.preset["3"]),
-            }
-            bg_gradient.Rotation = 135
-            bg_gradient.Transparency = NumberSequence.new{
-                NumberSequenceKeypoint.new(0, 0.85),
-                NumberSequenceKeypoint.new(1, 0.85),
-            }
-            bg_gradient.Parent = bg
+            pcall(load_assets)
 
-            -- Logo image (slides from top to center)
-            local logo_holder = Instance.new("Frame")
-            logo_holder.Size = dim2(0, 80, 0, 80)
-            logo_holder.AnchorPoint = vec2(0.5, 0.5)
-            logo_holder.Position = dim2(0.5, 0, -0.2, 0) -- starts above screen
-            logo_holder.BackgroundTransparency = 1
-            logo_holder.BorderSizePixel = 0
-            logo_holder.ZIndex = 3
-            logo_holder.Parent = splash_gui
+            -- Expose home_tab builder on the library so callers can do window:home_tab()
+            function library:home_tab(window)
+                -- force-create a tab named "Home" that opens first
+                local tab_cfg = {
+                    name = "Home",
+                    count = 0,
+                }
 
-            local logo_img = Instance.new("ImageLabel")
-            logo_img.Size = dim2(1, 0, 1, 0)
-            logo_img.BackgroundTransparency = 1
-            logo_img.Image = "https://raw.githubusercontent.com/itssor/Breach.wtf/main/Assets/logo.jpg"
-            logo_img.ScaleType = Enum.ScaleType.Fit
-            logo_img.ZIndex = 3
-            logo_img.Parent = logo_holder
+                local tab_button = library:create("TextButton", {
+                    FontFace = fonts["ProggyClean"];
+                    TextColor3 = rgb(170, 170, 170);
+                    BorderColor3 = rgb(0, 0, 0);
+                    Text = "Home";
+                    Parent = window.tab_button_holder;
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    AutomaticSize = Enum.AutomaticSize.XY;
+                    TextSize = 12;
+                    BackgroundColor3 = rgb(255, 255, 255);
+                    LayoutOrder = -999; -- always first
+                })
 
-            -- Corner rounding for logo
-            local logo_corner = Instance.new("UICorner")
-            logo_corner.CornerRadius = dim(0, 8)
-            logo_corner.Parent = logo_holder
+                local Page = library:create("Frame", {
+                    Parent = window.main_outline;
+                    BackgroundTransparency = 0.6;
+                    Position = dim2(0, 2, 0, 24);
+                    BorderColor3 = rgb(0, 0, 0);
+                    Size = dim2(1, -4, 1, -48);
+                    BorderSizePixel = 0;
+                    BackgroundColor3 = rgb(0, 0, 0);
+                    Visible = false;
+                })
 
-            -- Accent border around logo
-            local logo_stroke = Instance.new("UIStroke")
-            logo_stroke.Color = themes.preset["1"]
-            logo_stroke.Thickness = 2
-            logo_stroke.Parent = logo_holder
+                -- ── Logo (left, final resting position) ──────────────────────────
+                local logo_holder = library:create("Frame", {
+                    Parent = Page;
+                    Size = dim2(0, 60, 0, 60);
+                    AnchorPoint = vec2(0.5, 0.5);
+                    -- starts off-screen above the page
+                    Position = dim2(0.18, 0, -0.5, 0);
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    ZIndex = 3;
+                })
 
-            -- "Breach.WTF" trail text (hidden initially, revealed after logo slides right)
-            local trail_text = Instance.new("TextLabel")
-            trail_text.Size = dim2(0, 200, 0, 40)
-            trail_text.AnchorPoint = vec2(0, 0.5)
-            trail_text.Position = dim2(0.5, -90, 0.5, 0) -- left of center (where logo was)
-            trail_text.BackgroundTransparency = 1
-            trail_text.Text = "Breach.WTF"
-            trail_text.TextColor3 = rgb(220, 220, 220)
-            trail_text.TextTransparency = 1 -- starts invisible
-            trail_text.Font = Enum.Font.GothamBold
-            trail_text.TextSize = 28
-            trail_text.TextXAlignment = Enum.TextXAlignment.Left
-            trail_text.BorderSizePixel = 0
-            trail_text.ZIndex = 2
-            trail_text.Parent = splash_gui
+                local logo_img = library:create("ImageLabel", {
+                    Parent = logo_holder;
+                    Size = dim2(1, 0, 1, 0);
+                    BackgroundTransparency = 1;
+                    Image = logo_asset or "";
+                    ScaleType = Enum.ScaleType.Fit;
+                    ZIndex = 3;
+                })
 
-            -- Gradient on trail text to match theme
-            local text_gradient = Instance.new("UIGradient")
-            text_gradient.Color = rgbseq{
-                rgbkey(0, themes.preset["1"]),
-                rgbkey(0.5, themes.preset["2"]),
-                rgbkey(1, rgb(220, 220, 220)),
-            }
-            text_gradient.Parent = trail_text
+                library:create("UICorner", {
+                    CornerRadius = dim(0, 6);
+                    Parent = logo_holder;
+                })
 
-            -- Discord icon button (appears after animation)
-            local discord_btn = Instance.new("ImageButton")
-            discord_btn.Size = dim2(0, 32, 0, 32)
-            discord_btn.AnchorPoint = vec2(0, 0.5)
-            discord_btn.Position = dim2(0.5, 120, 0.5, 0) -- right of text
-            discord_btn.BackgroundTransparency = 1
-            discord_btn.Image = "https://raw.githubusercontent.com/itssor/Breach.wtf/main/Assets/discord.png"
-            discord_btn.ImageTransparency = 1 -- starts invisible
-            discord_btn.ScaleType = Enum.ScaleType.Fit
-            discord_btn.ZIndex = 3
-            discord_btn.Parent = splash_gui
+                library:create("UIStroke", {
+                    Color = themes.preset["1"];
+                    Thickness = 2;
+                    Parent = logo_holder;
+                })
 
-            discord_btn.MouseButton1Click:Connect(function()
-                pcall(function()
-                    request({
-                        Url = "http://127.0.0.1:6463/rpc?v=1",
-                        Method = "POST",
-                        Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"},
-                        Body = game:GetService("HttpService"):JSONEncode({
-                            cmd = "INVITE_BROWSER",
-                            args = {code = "ccfpnjW7Ee"},
-                            nonce = game:GetService("HttpService"):GenerateGUID(false)
+                -- ── "Breach.WTF" centre text ─────────────────────────────────────
+                local trail_text = library:create("TextLabel", {
+                    Parent = Page;
+                    Size = dim2(0, 160, 0, 20);
+                    AnchorPoint = vec2(0.5, 0.5);
+                    Position = dim2(0.5, 0, 0.5, 0);
+                    BackgroundTransparency = 1;
+                    Text = "Breach.WTF";
+                    FontFace = fonts["ProggyClean"];
+                    TextSize = 16;
+                    TextColor3 = rgb(220, 220, 220);
+                    TextTransparency = 1; -- hidden until animation
+                    BorderSizePixel = 0;
+                    ZIndex = 2;
+                })
+
+                library:create("UIGradient", {
+                    Color = rgbseq{
+                        rgbkey(0, themes.preset["1"]),
+                        rgbkey(0.5, themes.preset["2"]),
+                        rgbkey(1, rgb(220, 220, 220)),
+                    };
+                    Parent = trail_text;
+                })
+
+                -- ── Discord icon (right) ──────────────────────────────────────────
+                local discord_btn = library:create("ImageButton", {
+                    Parent = Page;
+                    Size = dim2(0, 24, 0, 24);
+                    AnchorPoint = vec2(0.5, 0.5);
+                    Position = dim2(0.82, 0, 0.5, 0);
+                    BackgroundTransparency = 1;
+                    Image = discord_asset or "";
+                    ScaleType = Enum.ScaleType.Fit;
+                    ImageTransparency = 1; -- hidden until animation
+                    ZIndex = 3;
+                })
+
+                discord_btn.MouseButton1Click:Connect(function()
+                    pcall(function()
+                        request({
+                            Url = "http://127.0.0.1:6463/rpc?v=1",
+                            Method = "POST",
+                            Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"},
+                            Body = http_service:JSONEncode({
+                                cmd = "INVITE_BROWSER",
+                                args = {code = "ccfpnjW7Ee"},
+                                nonce = http_service:GenerateGUID(false)
+                            })
                         })
-                    })
+                    end)
                 end)
-            end)
 
-            -- Hover effect on discord button
-            discord_btn.MouseEnter:Connect(function()
-                tween_service:Create(discord_btn, TweenInfo.new(0.15), {ImageTransparency = 0.2}):Play()
-            end)
-            discord_btn.MouseLeave:Connect(function()
-                tween_service:Create(discord_btn, TweenInfo.new(0.15), {ImageTransparency = 0}):Play()
-            end)
+                discord_btn.MouseEnter:Connect(function()
+                    tween_service:Create(discord_btn, TweenInfo.new(0.12), {ImageTransparency = 0.3}):Play()
+                end)
+                discord_btn.MouseLeave:Connect(function()
+                    tween_service:Create(discord_btn, TweenInfo.new(0.12), {ImageTransparency = 0}):Play()
+                end)
 
-            -- Run the animation sequence
-            task.spawn(function()
-                -- Step 1: slide logo from top to center
-                task.wait(0.1)
-                tween_service:Create(logo_holder, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    Position = dim2(0.5, 0, 0.5, 0)
-                }):Play()
+                -- ── open_tab wired up same as library:tab ─────────────────────────
+                function tab_cfg.open_tab()
+                    local selected = window.selected_tab
+                    if selected then
+                        selected[1].Visible = false
+                        selected[2].TextColor3 = rgb(170, 170, 170)
+                    end
+                    Page.Visible = true
+                    tab_button.TextColor3 = rgb(255, 255, 255)
+                    window.selected_tab = {Page, tab_button}
+                end
 
-                task.wait(0.85)
+                tab_button.MouseButton1Down:Connect(function()
+                    tab_cfg.open_tab()
+                end)
 
-                -- Step 2: logo slides semi-fast to the right, trail text fades in behind it
-                local slide_tween = tween_service:Create(logo_holder, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Position = dim2(0.5, 110, 0.5, 0)
-                })
-                local text_tween = tween_service:Create(trail_text, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    TextTransparency = 0
-                })
-                slide_tween:Play()
-                text_tween:Play()
+                -- force home open first
+                tab_cfg.open_tab()
 
-                task.wait(0.42)
+                -- ── Animation sequence ────────────────────────────────────────────
+                task.spawn(function()
+                    -- wait one frame for the Page to be visible & sized
+                    task.wait(0.05)
 
-                -- Step 3: Discord icon pops in
-                tween_service:Create(discord_btn, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-                    ImageTransparency = 0
-                }):Play()
+                    -- Step 1: logo drops from above into screen-centre
+                    tween_service:Create(logo_holder, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                        Position = dim2(0.5, 0, 0.5, 0)
+                    }):Play()
 
-                -- Step 4: hold for a moment, then fade entire splash out
-                task.wait(2.2)
+                    task.wait(0.75)
 
-                tween_service:Create(bg, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
-                tween_service:Create(logo_holder, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {GroupTransparency = 1}):Play()
-                tween_service:Create(trail_text, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
-                tween_service:Create(discord_btn, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageTransparency = 1}):Play()
+                    -- Step 2: logo slides semi-fast left to its final resting spot,
+                    --         text fades in simultaneously (trail effect)
+                    tween_service:Create(logo_holder, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        Position = dim2(0.18, 0, 0.5, 0)
+                    }):Play()
+                    tween_service:Create(trail_text, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                        TextTransparency = 0
+                    }):Play()
 
-                task.wait(0.55)
-                splash_gui:Destroy()
-            end)
+                    task.wait(0.38)
+
+                    -- Step 3: discord icon pops in on the right
+                    tween_service:Create(discord_btn, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                        ImageTransparency = 0
+                    }):Play()
+
+                    -- Animation done — home page now permanently shows the final state:
+                    -- logo left | "Breach.WTF" centre | discord icon right
+                end)
+
+                return tab_cfg
+            end
         end
         --
 
