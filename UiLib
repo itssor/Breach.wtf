@@ -781,26 +781,45 @@
 
                 -- no border/corner on logo: image is transparent-bg star, no square needed
 
-                -- ── "Breach.WTF" centre text ─────────────────────────────────────
-                local trail_text = library:create("TextLabel", {
+                -- ── "Breach.WTF" reveal text ─────────────────────────────────────
+                -- text_clip is a zero-width frame that expands right, clipping the
+                -- label so it appears to be drawn by the logo as it slides left
+                local TEXT_W = 140  -- full pixel width of the text
+                local TEXT_H = 20
+
+                local text_clip = library:create("Frame", {
                     Parent = Page;
-                    Size = dim2(0, 160, 0, 20);
-                    AnchorPoint = vec2(0.5, 0.5);
-                    Position = dim2(0.5, 0, 0.5, 0);
+                    -- anchored at its left edge, positioned so when full-width
+                    -- it sits centred in the page (same X as logo final pos + offset)
+                    AnchorPoint = vec2(0, 0.5);
+                    Position = dim2(0.22, 0, 0.5, 0);
+                    Size = dim2(0, 0, 0, TEXT_H);   -- starts at 0 width
+                    BackgroundTransparency = 1;
+                    BorderSizePixel = 0;
+                    ClipsDescendants = true;
+                    ZIndex = 2;
+                })
+
+                local trail_text = library:create("TextLabel", {
+                    Parent = text_clip;
+                    -- fixed full size inside the clip frame
+                    Size = dim2(0, TEXT_W, 0, TEXT_H);
+                    Position = dim2(0, 0, 0, 0);
                     BackgroundTransparency = 1;
                     Text = "Breach.WTF";
                     FontFace = fonts["ProggyClean"];
                     TextSize = 16;
                     TextColor3 = rgb(220, 220, 220);
-                    TextTransparency = 1; -- hidden until animation
+                    TextTransparency = 0;
+                    TextXAlignment = Enum.TextXAlignment.Left;
                     BorderSizePixel = 0;
                     ZIndex = 2;
                 })
 
                 library:create("UIGradient", {
                     Color = rgbseq{
-                        rgbkey(0, rgb(120, 120, 120)),
-                        rgbkey(0.5, rgb(200, 200, 200)),
+                        rgbkey(0, rgb(140, 140, 140)),
+                        rgbkey(0.5, rgb(210, 210, 210)),
                         rgbkey(1, rgb(255, 255, 255)),
                     };
                     Parent = trail_text;
@@ -877,13 +896,16 @@
                     hold:Play()
                     hold.Completed:Wait()
 
-                    -- Step 2: logo slides left; text fades in as the trail
+                    -- Step 2: logo slides left; text_clip expands right at exact same
+                    -- duration+easing so text appears to be revealed behind the logo
+                    local SLIDE_DUR = 0.45
+                    local SLIDE_EASE = Enum.EasingStyle.Quad
                     local t2a = tween_service:Create(logo_holder,
-                        TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+                        TweenInfo.new(SLIDE_DUR, SLIDE_EASE, Enum.EasingDirection.Out),
                         { Position = dim2(0.18, 0, 0.5, 0) })
-                    local t2b = tween_service:Create(trail_text,
-                        TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                        { TextTransparency = 0 })
+                    local t2b = tween_service:Create(text_clip,
+                        TweenInfo.new(SLIDE_DUR, SLIDE_EASE, Enum.EasingDirection.Out),
+                        { Size = dim2(0, TEXT_W, 0, TEXT_H) })
                     t2a:Play()
                     t2b:Play()
                     t2a.Completed:Wait()
