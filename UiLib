@@ -63,7 +63,7 @@
 
 -- Library init
     local library = {
-        directory = "priv9",
+        directory = "Breach.WTF",
         folders = {
             "/fonts",
             "/configs",
@@ -525,7 +525,7 @@
     -- Library element functions
         function library:window(properties)
             local cfg = {
-                name = properties.name or properties.Name or "priv9",
+                name = properties.name or properties.Name or "Breach.WTF",
                 size = properties.size or properties.Size or dim2(0, 600, 0, 400), 
                 selected_tab 
             }
@@ -700,6 +700,168 @@
             Name = "Hi",
             Parent = gethui() 
         })
+
+        -- Breach.WTF Loading Animation (splash + home screen)
+        do
+            local splash_gui = Instance.new("ScreenGui")
+            splash_gui.Name = "BreachSplash"
+            splash_gui.IgnoreGuiInset = true
+            splash_gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            splash_gui.DisplayOrder = 999
+            splash_gui.Parent = gethui()
+
+            -- Full-screen dark background
+            local bg = Instance.new("Frame")
+            bg.Size = dim2(1, 0, 1, 0)
+            bg.Position = dim2(0, 0, 0, 0)
+            bg.BackgroundColor3 = themes.preset.background
+            bg.BorderSizePixel = 0
+            bg.ZIndex = 1
+            bg.Parent = splash_gui
+
+            -- Gradient overlay matching library theme
+            local bg_gradient = Instance.new("UIGradient")
+            bg_gradient.Color = rgbseq{
+                rgbkey(0, themes.preset["1"]),
+                rgbkey(0.5, themes.preset["2"]),
+                rgbkey(1, themes.preset["3"]),
+            }
+            bg_gradient.Rotation = 135
+            bg_gradient.Transparency = NumberSequence.new{
+                NumberSequenceKeypoint.new(0, 0.85),
+                NumberSequenceKeypoint.new(1, 0.85),
+            }
+            bg_gradient.Parent = bg
+
+            -- Logo image (slides from top to center)
+            local logo_holder = Instance.new("Frame")
+            logo_holder.Size = dim2(0, 80, 0, 80)
+            logo_holder.AnchorPoint = vec2(0.5, 0.5)
+            logo_holder.Position = dim2(0.5, 0, -0.2, 0) -- starts above screen
+            logo_holder.BackgroundTransparency = 1
+            logo_holder.BorderSizePixel = 0
+            logo_holder.ZIndex = 3
+            logo_holder.Parent = splash_gui
+
+            local logo_img = Instance.new("ImageLabel")
+            logo_img.Size = dim2(1, 0, 1, 0)
+            logo_img.BackgroundTransparency = 1
+            logo_img.Image = "https://raw.githubusercontent.com/itssor/Breach.wtf/main/Assets/logo.jpg"
+            logo_img.ScaleType = Enum.ScaleType.Fit
+            logo_img.ZIndex = 3
+            logo_img.Parent = logo_holder
+
+            -- Corner rounding for logo
+            local logo_corner = Instance.new("UICorner")
+            logo_corner.CornerRadius = dim(0, 8)
+            logo_corner.Parent = logo_holder
+
+            -- Accent border around logo
+            local logo_stroke = Instance.new("UIStroke")
+            logo_stroke.Color = themes.preset["1"]
+            logo_stroke.Thickness = 2
+            logo_stroke.Parent = logo_holder
+
+            -- "Breach.WTF" trail text (hidden initially, revealed after logo slides right)
+            local trail_text = Instance.new("TextLabel")
+            trail_text.Size = dim2(0, 200, 0, 40)
+            trail_text.AnchorPoint = vec2(0, 0.5)
+            trail_text.Position = dim2(0.5, -90, 0.5, 0) -- left of center (where logo was)
+            trail_text.BackgroundTransparency = 1
+            trail_text.Text = "Breach.WTF"
+            trail_text.TextColor3 = rgb(220, 220, 220)
+            trail_text.TextTransparency = 1 -- starts invisible
+            trail_text.Font = Enum.Font.GothamBold
+            trail_text.TextSize = 28
+            trail_text.TextXAlignment = Enum.TextXAlignment.Left
+            trail_text.BorderSizePixel = 0
+            trail_text.ZIndex = 2
+            trail_text.Parent = splash_gui
+
+            -- Gradient on trail text to match theme
+            local text_gradient = Instance.new("UIGradient")
+            text_gradient.Color = rgbseq{
+                rgbkey(0, themes.preset["1"]),
+                rgbkey(0.5, themes.preset["2"]),
+                rgbkey(1, rgb(220, 220, 220)),
+            }
+            text_gradient.Parent = trail_text
+
+            -- Discord icon button (appears after animation)
+            local discord_btn = Instance.new("ImageButton")
+            discord_btn.Size = dim2(0, 32, 0, 32)
+            discord_btn.AnchorPoint = vec2(0, 0.5)
+            discord_btn.Position = dim2(0.5, 120, 0.5, 0) -- right of text
+            discord_btn.BackgroundTransparency = 1
+            discord_btn.Image = "https://raw.githubusercontent.com/itssor/Breach.wtf/main/Assets/discord.png"
+            discord_btn.ImageTransparency = 1 -- starts invisible
+            discord_btn.ScaleType = Enum.ScaleType.Fit
+            discord_btn.ZIndex = 3
+            discord_btn.Parent = splash_gui
+
+            discord_btn.MouseButton1Click:Connect(function()
+                pcall(function()
+                    request({
+                        Url = "http://127.0.0.1:6463/rpc?v=1",
+                        Method = "POST",
+                        Headers = {["Content-Type"] = "application/json", ["Origin"] = "https://discord.com"},
+                        Body = game:GetService("HttpService"):JSONEncode({
+                            cmd = "INVITE_BROWSER",
+                            args = {code = "ccfpnjW7Ee"},
+                            nonce = game:GetService("HttpService"):GenerateGUID(false)
+                        })
+                    })
+                end)
+            end)
+
+            -- Hover effect on discord button
+            discord_btn.MouseEnter:Connect(function()
+                tween_service:Create(discord_btn, TweenInfo.new(0.15), {ImageTransparency = 0.2}):Play()
+            end)
+            discord_btn.MouseLeave:Connect(function()
+                tween_service:Create(discord_btn, TweenInfo.new(0.15), {ImageTransparency = 0}):Play()
+            end)
+
+            -- Run the animation sequence
+            task.spawn(function()
+                -- Step 1: slide logo from top to center
+                task.wait(0.1)
+                tween_service:Create(logo_holder, TweenInfo.new(0.55, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    Position = dim2(0.5, 0, 0.5, 0)
+                }):Play()
+
+                task.wait(0.85)
+
+                -- Step 2: logo slides semi-fast to the right, trail text fades in behind it
+                local slide_tween = tween_service:Create(logo_holder, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    Position = dim2(0.5, 110, 0.5, 0)
+                })
+                local text_tween = tween_service:Create(trail_text, TweenInfo.new(0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                    TextTransparency = 0
+                })
+                slide_tween:Play()
+                text_tween:Play()
+
+                task.wait(0.42)
+
+                -- Step 3: Discord icon pops in
+                tween_service:Create(discord_btn, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                    ImageTransparency = 0
+                }):Play()
+
+                -- Step 4: hold for a moment, then fade entire splash out
+                task.wait(2.2)
+
+                tween_service:Create(bg, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+                tween_service:Create(logo_holder, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {GroupTransparency = 1}):Play()
+                tween_service:Create(trail_text, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {TextTransparency = 1}):Play()
+                tween_service:Create(discord_btn, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {ImageTransparency = 1}):Play()
+
+                task.wait(0.55)
+                splash_gui:Destroy()
+            end)
+        end
+        --
 
         function notifications:refresh_notifs() 
             for i, v in notifications.notifs do 
@@ -881,7 +1043,7 @@
             return setmetatable(cfg, library)
         end 
 
-        local watermark = library:watermark({name = "priv9 - 100 fps - 100 ping"})
+        local watermark = library:watermark({name = "Breach.WTF - 100 fps - 100 ping"})
         local fps = 0
         local watermark_delay = tick() 
 
@@ -891,7 +1053,7 @@
             if tick() - watermark_delay > 1 then 
                 watermark_delay = tick()
                 local ping = math.floor(stats.PerformanceStats.Ping:GetValue()) .. "ms"                
-                watermark.update_text(string.format("priv9 - fps: %s - ping: %s", fps, ping))
+                watermark.update_text(string.format("Breach.WTF - fps: %s - ping: %s", fps, ping))
                 fps = 0
             end
         end)
