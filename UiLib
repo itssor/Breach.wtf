@@ -307,8 +307,7 @@ local Library do
                 return
             end
 
-            Tween:Pause()
-            self = nil
+            self:Pause()
         end
     end
 
@@ -801,9 +800,7 @@ local Library do
             Connection = nil
         }
 
-        Library:Thread(function()
-            NewConnection.Connection = Event:Connect(Callback)
-        end)
+        NewConnection.Connection = Event:Connect(Callback)
 
         TableInsert(self.Connections, NewConnection)
         return NewConnection
@@ -906,7 +903,7 @@ local Library do
             List[Index] = FileName
         end
 
-        local IsNew = #List ~= CurrentList
+        local IsNew = #List ~= #CurrentList
 
         if not IsNew then
             for Index = 1, #List do
@@ -915,7 +912,9 @@ local Library do
                     break
                 end
             end
-        else
+        end
+
+        if IsNew then
             CurrentList = List
             Element:Refresh(CurrentList)
         end
