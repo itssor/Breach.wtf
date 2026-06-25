@@ -3223,15 +3223,7 @@ local Library do
                 })
 
                 Window.Items = Items
-
-                Settings:Keybind({
-                    Name = "Menu Keybind",
-                    Flag = "MenuBind",
-                    Default = Enum.KeyCode.Z,
-                    Callback = function(Value)
-                        Window:SetOpen(not Window.IsOpen)
-                    end
-                })
+                Window._Settings = Settings
             end
             
             local Debounce = false
@@ -3290,6 +3282,18 @@ local Library do
                         Window:SetOpen(not Window.IsOpen)
                     end
                 end)
+            end
+
+            if Window._Settings then
+                Window._Settings:Keybind({
+                    Name = "Menu Keybind",
+                    Flag = "MenuBind",
+                    Default = Enum.KeyCode.Z,
+                    Callback = function(Value)
+                        Window:SetOpen(not Window.IsOpen)
+                    end
+                })
+                Window._Settings = nil
             end
 
             --[[
