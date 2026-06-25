@@ -3659,6 +3659,10 @@ local Library do
                 end)
             end
 
+            function Page:SetOpen(Bool)
+                return Page:Turn(Bool)
+            end
+
             Items["Inactive"]:Connect("MouseButton1Down", function()
                 for Index, Value in Page.Window.Pages do 
                     if Value == Page and Page.Active then
@@ -4620,6 +4624,15 @@ local Library do
                     if not Debounce then 
                         task.wait(0.03)
                     end
+                end
+            end
+
+            function Section:SetOpen(Bool)
+                if Bool == nil then
+                    Bool = not Section.IsActive
+                end
+                if Section.IsActive ~= Bool then
+                    Section:ToggleBackground()
                 end
             end
 
