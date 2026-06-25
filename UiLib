@@ -3223,6 +3223,15 @@ local Library do
                 })
 
                 Window.Items = Items
+
+                Settings:Keybind({
+                    Name = "Menu Keybind",
+                    Flag = "MenuBind",
+                    Default = Enum.KeyCode.Z,
+                    Callback = function(Value)
+                        Window:SetOpen(not Window.IsOpen)
+                    end
+                })
             end
             
             local Debounce = false
@@ -3274,15 +3283,6 @@ local Library do
                     Items["MainFrame"].Instance.Visible = Window.IsOpen
                 end)
             end
-
-            Settings:Keybind({
-                Name = "Menu Keybind",
-                Flag = "MenuBind",
-                Default = Enum.KeyCode.Z,
-                Callback = function(Value)
-                    Window:SetOpen(not Window.IsOpen)
-                end
-            })
 
             if IsMobile then 
                 Items["FloatingButton"]:Connect("InputBegan", function(Input)
