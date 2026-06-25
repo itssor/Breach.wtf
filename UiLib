@@ -110,6 +110,16 @@ local Library do
     Library.Sections.__index = Library.Sections
     Library.Pages.__index = Library.Pages
 
+    local function attachMethods(target, source)
+        for name, value in source do
+            if type(value) == "function" and rawget(target, name) == nil then
+                target[name] = value
+            end
+        end
+
+        return target
+    end
+
     local Keys = {
         ["Unknown"]           = "Unknown",
         ["Backspace"]         = "Back",
@@ -225,7 +235,7 @@ local Library do
 
             NewTween.Tween:Play()
 
-            setmetatable(NewTween, Tween)
+            attachMethods(NewTween, Tween)
 
             return NewTween
         end
@@ -313,7 +323,7 @@ local Library do
                 Class = Class
             }
 
-            setmetatable(NewItem, Instances)
+            attachMethods(NewItem, Instances)
 
             for Property, Value in NewItem.Properties do
                 NewItem.Instance[Property] = Value
@@ -2916,7 +2926,8 @@ local Library do
                     })
                 end)
                 
-                local Settings = {
+                local Settings
+                Settings = {
                     IsOpen = false,
                     Name = ""..#Library.Sections,
                     Items = { },
@@ -3160,7 +3171,7 @@ local Library do
                     end)
     
                     Settings.Items = SettingsItems
-                    setmetatable(Settings, Library.Sections)
+                attachMethods(Settings, Library.Sections)
                 end
 
                 Settings:Label("First gradient color"):Colorpicker({
@@ -3432,7 +3443,7 @@ local Library do
             Window:SetCenter()
             task.wait()
             Window:SetOpen(true)
-            return setmetatable(Window, Library)
+            return attachMethods(Window, Library)
         end
 
         Library.Category = function(self, Name)
@@ -3685,7 +3696,7 @@ local Library do
             end
             
             TableInsert(Page.Window.Pages, Page)
-            return setmetatable(Page, Library.Pages)
+            return attachMethods(Page, Library.Pages)
         end
 
         Library.Pages.GlobalChat = function(self, Side)
@@ -4649,7 +4660,7 @@ local Library do
 
             Section.Page.Sections[Section.Name] = Section
 
-            return setmetatable(Section, Library.Sections)
+            return attachMethods(Section, Library.Sections)
         end
 
         Library.Sections.Toggle = function(self, Data)
@@ -5074,7 +5085,7 @@ local Library do
 
                 Settings.Items = SettingsItem
 
-                setmetatable(Settings, Library.Sections)
+                attachMethods(Settings, Library.Sections)
                 return Settings
             end
 
