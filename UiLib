@@ -6692,8 +6692,9 @@ local Library do
 
                     Update()
                 elseif type(Key) == "table" then
-                    local RealKey = Key.Key == "Backspace" and "None" or Key.Key
-                    Keybind.Key = tostring(Key.Key)
+                    local RealKey = (type(Key.Key) == "userdata" and Key.Key.Name == "Backspace") and "None" or Key.Key
+                    local KeyName = type(Key.Key) == "userdata" and Key.Key.Name or tostring(Key.Key)
+                    Keybind.Key = KeyName
 
                     if Key.ModeSelected then
                         Keybind.ModeSelected = Key.Mode
@@ -6703,10 +6704,8 @@ local Library do
                         Keybind:SetMode("Toggle")
                     end
 
-                    local KeyString = Keys[Keybind.Key] or StringGSub(tostring(RealKey), "Enum.", "") or RealKey
-                    local TextToDisplay = KeyString and StringGSub(StringGSub(KeyString, "KeyCode.", ""), "UserInputType.", "") or "None"
-
-                    TextToDisplay = StringGSub(StringGSub(KeyString, "KeyCode.", ""), "UserInputType.", "")
+                    local KeyString = Keys[Keybind.Key] or StringGSub(tostring(RealKey), "Enum%.", "") or tostring(RealKey)
+                    local TextToDisplay = KeyString and StringGSub(StringGSub(KeyString, "KeyCode%.", ""), "UserInputType%.", "") or "None"
 
                     Keybind.Value = TextToDisplay
                     Items["KeyButton"].Instance.Text = TextToDisplay
