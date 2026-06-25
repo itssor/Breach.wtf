@@ -13,8 +13,9 @@ local Library do
     local TweenService = game:GetService("TweenService")
     local Lighting = game:GetService("Lighting")
 
-    gethui = gethui or function()
-        return CoreGui
+    local function getUiParent()
+        local playerGui = Players.LocalPlayer and Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
+        return playerGui or CoreGui
     end
 
     local LocalPlayer = Players.LocalPlayer
@@ -684,7 +685,7 @@ local Library do
     end
 
     Library.Holder = Instances:Create("ScreenGui", {
-        Parent = gethui(),
+        Parent = getUiParent(),
         Name = "\0",
         ZIndexBehavior = Enum.ZIndexBehavior.Global,
         DisplayOrder = 2,
@@ -692,7 +693,7 @@ local Library do
     })
 
     Library.UnusedHolder = Instances:Create("ScreenGui", {
-        Parent = gethui(),
+        Parent = getUiParent(),
         Name = "\0",
         ZIndexBehavior = Enum.ZIndexBehavior.Global,
         Enabled = false,
@@ -3088,7 +3089,13 @@ local Library do
         
                             for Index, Value in Library.OpenFrames do 
                                 if Value ~= Settings then 
-                                    Value:SetOpen(false)
+                                    if type(Value) == "table" then
+                                        if type(Value.SetOpen) == "function" then
+                                            Value:SetOpen(false)
+                                        elseif type(Value.Turn) == "function" then
+                                            Value:Turn(false)
+                                        end
+                                    end
                                 end
                             end
         
@@ -4986,7 +4993,13 @@ local Library do
     
                         for Index, Value in Library.OpenFrames do 
                             if Value ~= Settings then 
-                                Value:SetOpen(false)
+                                if type(Value) == "table" then
+                                    if type(Value.SetOpen) == "function" then
+                                        Value:SetOpen(false)
+                                    elseif type(Value.Turn) == "function" then
+                                        Value:Turn(false)
+                                    end
+                                end
                             end
                         end
     
