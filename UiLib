@@ -3171,7 +3171,10 @@ local Library do
                     end)
     
                     Settings.Items = SettingsItems
-                attachMethods(Settings, Library.Sections)
+                    attachMethods(Settings, Library.Sections)
+                    Settings.Keybind = function(_, Data)
+                        return Library.Sections.Keybind(Settings, Data)
+                    end
                 end
 
                 Settings:Label("First gradient color"):Colorpicker({
