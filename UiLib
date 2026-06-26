@@ -13,19 +13,15 @@
     Please give credit if used or modified.
 ]]
 
-if getgenv().Library then
-    getgenv().Library:Exit()
-end
+cloneref = cloneref or function(...) return ... end
 
-cloneref = cloneref or function(...) return ... end 
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
-local TweenService = game:GetService("TweenService")
-local GuiService = game:GetService("GuiService")
-local CoreGui = cloneref(game:GetService("CoreGui"))
+local Players           = cloneref(game:GetService("Players"))
+local UserInputService  = cloneref(game:GetService("UserInputService"))
+local RunService        = cloneref(game:GetService("RunService"))
+local HttpService       = cloneref(game:GetService("HttpService"))
+local TweenService      = cloneref(game:GetService("TweenService"))
+local GuiService        = cloneref(game:GetService("GuiService"))
+local CoreGui           = cloneref(game:GetService("CoreGui"))
 
 gethui = gethui or function() return CoreGui end
 
@@ -263,7 +259,6 @@ local Library = {
         end
 
         Library = nil
-        getgenv().Library = nil
     end
 
     Library.Create = function(Self, Class, Properties)
@@ -4999,5 +4994,4 @@ local Library = {
     end
 end
 
-getgenv().Library = Library
-return Library 
+return Library
