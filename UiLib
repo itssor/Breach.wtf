@@ -4,14 +4,15 @@
 -- @joestar._3
 
 local Library do 
-    local Workspace = game:GetService("Workspace")
-    local UserInputService = game:GetService("UserInputService")
-    local Players = game:GetService("Players")
-    local HttpService = game:GetService("HttpService")
-    local RunService = game:GetService("RunService")
-    local CoreGui = cloneref and cloneref(game:GetService("CoreGui")) or game:GetService("CoreGui")
-    local TweenService = game:GetService("TweenService")
-    local Lighting = game:GetService("Lighting")
+    local cr = cloneref or function(...) return ... end
+    local Workspace = cr(game:GetService("Workspace"))
+    local UserInputService = cr(game:GetService("UserInputService"))
+    local Players = cr(game:GetService("Players"))
+    local HttpService = cr(game:GetService("HttpService"))
+    local RunService = cr(game:GetService("RunService"))
+    local CoreGui = cr(game:GetService("CoreGui"))
+    local TweenService = cr(game:GetService("TweenService"))
+    local Lighting = cr(game:GetService("Lighting"))
 
     local function getUiParent()
         local playerGui = Players.LocalPlayer and Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
@@ -5343,11 +5344,11 @@ local Library do
 
                 Name = Data.Name or Data.name or "Slider",
                 Flag = Data.Flag or Data.flag or Library:NextFlag(),
-                Min = Data.Min or Data.min or 0,
-                Default = Data.Default or Data.default or 0,
+                Min = Data.Min ~= nil and Data.Min or Data.min ~= nil and Data.min or 0,
+                Default = Data.Default ~= nil and Data.Default or Data.default ~= nil and Data.default or 0,
                 Max = Data.Max or Data.max or 100,
                 Suffix = Data.Suffix or Data.suffix or "",
-                Decimals = Data.Decimals or Data.decimals or 1,
+                Decimals = Data.Decimals ~= nil and Data.Decimals or Data.decimals ~= nil and Data.decimals or 1,
                 Callback = Data.Callback or Data.callback or function() end,
 
                 Value = 0,
