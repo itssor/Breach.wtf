@@ -36,18 +36,24 @@ end;
 
 -- local executor 	= identifyexecutor and identifyexecutor() or 'unknown';
 
--- Custom font: download consolas.ttf once; fall back to built-in Font 2 (Plex) on failure.
+-- Custom font: download consolas.ttf once; probe it against a real Text drawing;
+-- fall back to built-in Font 2 (Plex) if the executor can't use custom font strings.
 local GLOBAL_FONT = _G.GLOBAL_FONT;
 if (not GLOBAL_FONT) then
+      local customFontPath;
       local ok = pcall(function()
             if (not isfile('consolas.ttf')) then
                   writefile('consolas.ttf', game:HttpGet('https://raw.githubusercontent.com/itssor/Breach.wtf/refs/heads/main/Assets/consolas.ttf'));
             end;
-            GLOBAL_FONT = getcustomasset('consolas.ttf');
+            customFontPath = getcustomasset('consolas.ttf');
       end);
-      if (not ok or not GLOBAL_FONT) then
-            GLOBAL_FONT = 2;
-      end;
+      -- verify the font path actually works on a Drawing before adopting it
+      local usable = ok and customFontPath and pcall(function()
+            local probe = Drawing.new('Text');
+            probe.Font = customFontPath;
+            probe:Remove();
+      end);
+      GLOBAL_FONT = usable and customFontPath or 2;
 end;
 local GLOBAL_SIZE	= _G.GLOBAL_SIZE or 12; --executor == 'AWP' and 16 or executor == 'Zenith' and 15 or 13;
 
@@ -245,28 +251,34 @@ do
 
             -- text shadows (drawn just behind their labels)
             if (TEXT_SHADOW) then
-                  drawings.nameShadow     = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
-                  drawings.distanceShadow = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
-                  drawings.weaponShadow   = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
+                  local ok, ns = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
+                  if (ok) then drawings.nameShadow = ns; end;
+                  local ok2, ds = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
+                  if (ok2) then drawings.distanceShadow = ds; end;
+                  local ok3, ws = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
+                  if (ok3) then drawings.weaponShadow = ws; end;
             end;
 
             -- corner brackets (8 colored + 8 black outline segments)
+            -- wrapped in pcall so executors without Line support still work
             drawings.boxCorners = {};
             drawings.boxCornersOutline = {};
-            for i = 1, 16 do
-                  local isOutline = i > 8;
-                  local seg = createDrawing('Line', {
-                        Visible           = false;
-                        Thickness         = 1;
-                        Color             = isOutline and Color3.new(0, 0, 0) or Color3.new(1, 1, 1);
-                        ZIndex            = isOutline and BASE_ZINDEX or (BASE_ZINDEX + 1);
-                  }, allDrawings);
-                  if (isOutline) then
-                        drawings.boxCornersOutline[i - 8] = seg;
-                  else
-                        drawings.boxCorners[i] = seg;
+            pcall(function()
+                  for i = 1, 16 do
+                        local isOutline = i > 8;
+                        local seg = createDrawing('Line', {
+                              Visible           = false;
+                              Thickness         = 1;
+                              Color             = isOutline and Color3.new(0, 0, 0) or Color3.new(1, 1, 1);
+                              ZIndex            = isOutline and BASE_ZINDEX or (BASE_ZINDEX + 1);
+                        }, allDrawings);
+                        if (isOutline) then
+                              drawings.boxCornersOutline[i - 8] = seg;
+                        else
+                              drawings.boxCorners[i] = seg;
+                        end;
                   end;
-            end;
+            end);
 
             drawings.all = allDrawings;
 
@@ -455,8 +467,8 @@ do
             local corners   = drawings.boxCorners;
             local cornersOut= drawings.boxCornersOutline;
             for i = 1, 8 do
-                  corners[i].Visible        = false;
-                  cornersOut[i].Visible     = false;
+                  if (corners[i]) then corners[i].Visible = false; end;
+                  if (cornersOut[i]) then cornersOut[i].Visible = false; end;
             end;
 
             if (not setting) then
@@ -477,7 +489,7 @@ do
                   f.Transparency= setting.fillAlpha;
             end;
 
-            if (setting.mode == 'corner') then
+            if (setting.mode == 'corner' and corners[1]) then
                   -- corner brackets
                   local x0, y0 = position.X, position.Y;
                   local w, h   = size.X, size.Y;
@@ -501,7 +513,7 @@ do
                       seg.Color     = boxColor;
                       seg.Thickness = 1;
                       seg.Visible   = true;
-                      if (setting.outline) then
+                      if (setting.outline and cornersOut[i]) then
                             local so = cornersOut[i];
                             so.From      = p[1];
                             so.To        = p[2];
@@ -769,26 +781,30 @@ do
             };
 
             if (TEXT_SHADOW) then
-                  drawings.nameShadow     = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
-                  drawings.distanceShadow = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  local ok, ns = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  if (ok) then drawings.nameShadow = ns; end;
+                  local ok2, ds = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  if (ok2) then drawings.distanceShadow = ds; end;
             end;
 
             drawings.boxCorners = {};
             drawings.boxCornersOutline = {};
-            for i = 1, 16 do
-                  local isOutline = i > 8;
-                  local seg = createDrawing('Line', {
-                        Visible           = false;
-                        Thickness         = 1;
-                        Color             = isOutline and Color3.new(0, 0, 0) or self.colour;
-                        ZIndex            = isOutline and (BASE_ZINDEX) or (BASE_ZINDEX + 1);
-                  }, allDrawings);
-                  if (isOutline) then
-                        drawings.boxCornersOutline[i - 8] = seg;
-                  else
-                        drawings.boxCorners[i] = seg;
+            pcall(function()
+                  for i = 1, 16 do
+                        local isOutline = i > 8;
+                        local seg = createDrawing('Line', {
+                              Visible           = false;
+                              Thickness         = 1;
+                              Color             = isOutline and Color3.new(0, 0, 0) or self.colour;
+                              ZIndex            = isOutline and (BASE_ZINDEX) or (BASE_ZINDEX + 1);
+                        }, allDrawings);
+                        if (isOutline) then
+                              drawings.boxCornersOutline[i - 8] = seg;
+                        else
+                              drawings.boxCorners[i] = seg;
+                        end;
                   end;
-            end;
+            end);
 
             drawings.all = allDrawings;
 
@@ -843,8 +859,8 @@ do
             local corners    = drawings.boxCorners;
             local cornersOut = drawings.boxCornersOutline;
             for i = 1, 8 do
-                  corners[i].Visible    = false;
-                  cornersOut[i].Visible = false;
+                  if (corners[i]) then corners[i].Visible = false; end;
+                  if (cornersOut[i]) then cornersOut[i].Visible = false; end;
             end;
 
             if (not setting) then
@@ -864,7 +880,7 @@ do
                   f.Transparency = setting.fillAlpha;
             end;
 
-            if (setting.mode == 'corner') then
+            if (setting.mode == 'corner' and corners[1]) then
                   local x0, y0 = position.X, position.Y;
                   local w, h   = size.X, size.Y;
                   local c      = math.min(w, h) * (setting.cornerLen or 0.25);
@@ -886,7 +902,7 @@ do
                         seg.Color     = boxColor;
                         seg.Thickness = 1;
                         seg.Visible   = true;
-                        if (setting.outline) then
+                        if (setting.outline and cornersOut[i]) then
                               local so = cornersOut[i];
                               so.From      = p[1];
                               so.To        = p[2];
@@ -1121,26 +1137,30 @@ do
             };
 
             if (TEXT_SHADOW) then
-                  drawings.nameShadow     = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
-                  drawings.distanceShadow = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  local ok, ns = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  if (ok) then drawings.nameShadow = ns; end;
+                  local ok2, ds = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  if (ok2) then drawings.distanceShadow = ds; end;
             end;
 
             drawings.boxCorners = {};
             drawings.boxCornersOutline = {};
-            for i = 1, 16 do
-                  local isOutline = i > 8;
-                  local seg = createDrawing('Line', {
-                        Visible           = false;
-                        Thickness         = 1;
-                        Color             = isOutline and Color3.new(0, 0, 0) or self.colour;
-                        ZIndex            = isOutline and (BASE_ZINDEX) or (BASE_ZINDEX + 1);
-                  }, allDrawings);
-                  if (isOutline) then
-                        drawings.boxCornersOutline[i - 8] = seg;
-                  else
-                        drawings.boxCorners[i] = seg;
+            pcall(function()
+                  for i = 1, 16 do
+                        local isOutline = i > 8;
+                        local seg = createDrawing('Line', {
+                              Visible           = false;
+                              Thickness         = 1;
+                              Color             = isOutline and Color3.new(0, 0, 0) or self.colour;
+                              ZIndex            = isOutline and (BASE_ZINDEX) or (BASE_ZINDEX + 1);
+                        }, allDrawings);
+                        if (isOutline) then
+                              drawings.boxCornersOutline[i - 8] = seg;
+                        else
+                              drawings.boxCorners[i] = seg;
+                        end;
                   end;
-            end;
+            end);
 
             drawings.all = allDrawings;
 
@@ -1222,8 +1242,8 @@ do
             local corners    = drawings.boxCorners;
             local cornersOut = drawings.boxCornersOutline;
             for i = 1, 8 do
-                  corners[i].Visible    = false;
-                  cornersOut[i].Visible = false;
+                  if (corners[i]) then corners[i].Visible = false; end;
+                  if (cornersOut[i]) then cornersOut[i].Visible = false; end;
             end;
 
             if (not setting) then
@@ -1243,7 +1263,7 @@ do
                   f.Transparency = setting.fillAlpha;
             end;
 
-            if (setting.mode == 'corner') then
+            if (setting.mode == 'corner' and corners[1]) then
                   local x0, y0 = position.X, position.Y;
                   local w, h   = size.X, size.Y;
                   local c      = math.min(w, h) * (setting.cornerLen or 0.25);
@@ -1265,7 +1285,7 @@ do
                         seg.Color     = boxColor;
                         seg.Thickness = 1;
                         seg.Visible   = true;
-                        if (setting.outline) then
+                        if (setting.outline and cornersOut[i]) then
                               local so = cornersOut[i];
                               so.From      = p[1];
                               so.To        = p[2];
