@@ -36,10 +36,61 @@ end;
 
 -- local executor 	= identifyexecutor and identifyexecutor() or 'unknown';
 
-local GLOBAL_FONT = _G.GLOBAL_FONT or 1;  --executor == 'AWP' and 0 or executor == 'Zenith' and 3 or 1;
-local GLOBAL_SIZE	= _G.GLOBAL_SIZE or 13; --executor == 'AWP' and 16 or executor == 'Zenith' and 15 or 13;
+-- Custom font: download consolas.ttf once; fall back to built-in Font 2 (Plex) on failure.
+local GLOBAL_FONT = _G.GLOBAL_FONT;
+if (not GLOBAL_FONT) then
+      local ok = pcall(function()
+            if (not isfile('consolas.ttf')) then
+                  writefile('consolas.ttf', game:HttpGet('https://raw.githubusercontent.com/itssor/Breach.wtf/refs/heads/main/Assets/consolas.ttf'));
+            end;
+            GLOBAL_FONT = getcustomasset('consolas.ttf');
+      end);
+      if (not ok or not GLOBAL_FONT) then
+            GLOBAL_FONT = 2;
+      end;
+end;
+local GLOBAL_SIZE	= _G.GLOBAL_SIZE or 12; --executor == 'AWP' and 16 or executor == 'Zenith' and 15 or 13;
 
 local BASE_ZINDEX = 1;
+
+-- Gamesense-style ESP defaults (all overridable via _G).
+local BOX_MODE         = _G.ESP_BOX_MODE        or 'full';      -- 'full' | 'corner'
+local BOX_FILL         = _G.ESP_BOX_FILL        or false;       -- fill the box
+local BOX_FILL_COLOR   = _G.ESP_BOX_FILL_COLOR;                -- nil => uses box color
+local BOX_FILL_ALPHA   = _G.ESP_BOX_FILL_ALPHA  or 0.30;       -- 1 = opaque, 0 = invisible
+local BOX_OUTLINE      = _G.ESP_BOX_OUTLINE == nil and true  or _G.ESP_BOX_OUTLINE;  -- black outline behind box/corners
+local BOX_CORNER_LEN   = _G.ESP_BOX_CORNER_LEN  or 0.25;       -- bracket length, fraction of side
+
+local TEXT_SHADOW      = _G.ESP_TEXT_SHADOW == nil and true  or _G.ESP_TEXT_SHADOW;   -- drop-shadow behind text labels
+local HEALTHBAR_STYLE  = _G.ESP_HEALTHBAR_STYLE or 'snug';     -- 'snug' | 'classic'
+
+local function resolveBoxSetting(boxSetting)
+      -- boolean: legacy full box; table: full feature set.
+      if (boxSetting == nil) then
+            return false;
+      elseif (boxSetting == true) then
+            return {
+                  enabled   = true;
+                  mode      = BOX_MODE;
+                  fill      = BOX_FILL;
+                  fillColor = BOX_FILL_COLOR;
+                  fillAlpha = BOX_FILL_ALPHA;
+                  outline   = BOX_OUTLINE;
+                  cornerLen = BOX_CORNER_LEN;
+            };
+      elseif (type(boxSetting) == 'table') then
+            return {
+                  enabled   = true;
+                  mode      = boxSetting.mode      or BOX_MODE;
+                  fill      = boxSetting.fill      or BOX_FILL;
+                  fillColor = boxSetting.fillColor or BOX_FILL_COLOR;
+                  fillAlpha = boxSetting.fillAlpha or BOX_FILL_ALPHA;
+                  outline   = boxSetting.outline   or BOX_OUTLINE;
+                  cornerLen = boxSetting.cornerLen or BOX_CORNER_LEN;
+            };
+      end;
+      return false;
+end;
 
 local espLibrary = {};
 
@@ -130,7 +181,33 @@ do
 
       function playerESP:createDrawingCache()
             local allDrawings = {};
+
+            local function makeText(props)
+                  local d = createDrawing('Text', {
+                        Visible           = false;
+                        Center            = true;
+                        Outline           = not TEXT_SHADOW;   -- shadow replaces outline when enabled
+                        OutlineColor      = Color3.new(0, 0, 0);
+                        Color             = Color3.new(1, 1, 1);
+                        Transparency      = 1;
+                        Size              = GLOBAL_SIZE;
+                        Font              = GLOBAL_FONT;
+                        ZIndex            = BASE_ZINDEX + 1;
+                  }, allDrawings);
+                  for k, v in pairs(props) do
+                        d[k] = v;
+                  end;
+                  return d;
+            end;
+
             local drawings = {
+                  boxFill = createDrawing('Square', {
+                        Visible           = false;
+                        Color             = Color3.new(1, 1, 1);
+                        Transparency      = 1;
+                        Filled            = true;
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings),
                   box = createDrawing('Square', {
                         Visible           = false;
                         Thickness         = 1;
@@ -154,48 +231,43 @@ do
                   }, allDrawings);
                   healthBackground = createDrawing('Square', {
                         Visible           = false;
-                        Color             = Color3.new(0.239215, 0.239215, 0.239215);
-                        Transparency      = 0.7;
+                        Color             = Color3.new(0, 0, 0);
+                        Transparency      = 1;
                         Thickness         = 1;
-                        Filled            = true;
+                        Filled            = false;
                         ZIndex            = BASE_ZINDEX;
                   }, allDrawings);
 
-                  name = createDrawing('Text', {
-                        Visible           = false;
-                        Center            = true;
-                        Outline           = true;
-                        OutlineColor      = Color3.new(0, 0, 0);
-                        Color             = Color3.new(1, 1, 1);
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
-                        Text              = self.player.DisplayName;
-                        Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX + 1;
-                  }, allDrawings);
-                  distance = createDrawing('Text', {
-                        Visible           = false;
-                        Center            = true;
-                        Outline           = true;
-                        OutlineColor      = Color3.new(0, 0, 0);
-                        Color             = Color3.new(1, 1, 1);
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
-                        Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX + 1;
-                  }, allDrawings);
-                  weapon = createDrawing('Text', {
-                        Visible           = false;
-                        Center            = true;
-                        Outline           = true;
-                        OutlineColor      = Color3.new(0, 0, 0);
-                        Color             = Color3.new(1, 1, 1);
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
-                        Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX + 1;
-                  }, allDrawings);
+                  name = makeText({ Text = self.player.DisplayName; }),
+                  distance = makeText({}),
+                  weapon = makeText({}),
             };
+
+            -- text shadows (drawn just behind their labels)
+            if (TEXT_SHADOW) then
+                  drawings.nameShadow     = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
+                  drawings.distanceShadow = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
+                  drawings.weaponShadow   = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
+            end;
+
+            -- corner brackets (8 colored + 8 black outline segments)
+            drawings.boxCorners = {};
+            drawings.boxCornersOutline = {};
+            for i = 1, 16 do
+                  local isOutline = i > 8;
+                  local seg = createDrawing('Line', {
+                        Visible           = false;
+                        Thickness         = 1;
+                        Color             = isOutline and Color3.new(0, 0, 0) or Color3.new(1, 1, 1);
+                        ZIndex            = isOutline and BASE_ZINDEX or (BASE_ZINDEX + 1);
+                  }, allDrawings);
+                  if (isOutline) then
+                        drawings.boxCornersOutline[i - 8] = seg;
+                  else
+                        drawings.boxCorners[i] = seg;
+                  end;
+            end;
+
             drawings.all = allDrawings;
 
             self.drawings = drawings;
@@ -374,90 +446,204 @@ do
       --render functions
       function playerESP:renderBox(vector2, offset, enabled)
             local drawings = self.drawings;
+            local setting  = resolveBoxSetting(enabled);
 
-            if (not enabled) then
-                  drawings.box.Visible          = false;
-                  drawings.boxOutline.Visible   = false;
-                  return;
+            -- hide everything box-related
+            drawings.box.Visible            = false;
+            drawings.boxOutline.Visible     = false;
+            drawings.boxFill.Visible        = false;
+            local corners   = drawings.boxCorners;
+            local cornersOut= drawings.boxCornersOutline;
+            for i = 1, 8 do
+                  corners[i].Visible        = false;
+                  cornersOut[i].Visible     = false;
             end;
 
-            local fill        = drawings.box;
-            local outline     = drawings.boxOutline;
+            if (not setting) then
+                  return;
+            end;
 
             local position    = vector2 - offset;
             local size        = offset * 2;
-            
-            fill.Visible      = true;
-            fill.Position     = position;
-            fill.Size         = size;
+            local boxColor    = drawings.box.Color;
 
-            outline.Visible   = true;
-            outline.Position  = position;
-            outline.Size      = size;
+            -- fill (under everything)
+            if (setting.fill) then
+                  local f = drawings.boxFill;
+                  f.Visible     = true;
+                  f.Position    = position;
+                  f.Size        = size;
+                  f.Color       = setting.fillColor or boxColor;
+                  f.Transparency= setting.fillAlpha;
+            end;
+
+            if (setting.mode == 'corner') then
+                  -- corner brackets
+                  local x0, y0 = position.X, position.Y;
+                  local w, h   = size.X, size.Y;
+                  local c      = math.min(w, h) * (setting.cornerLen or 0.25);
+                  -- 8 endpoints: each corner = horizontal + vertical segment
+                  local pts = {
+                        { Vector2.new(x0,     y0),     Vector2.new(x0 + c, y0)     }, -- TL horz
+                        { Vector2.new(x0,     y0),     Vector2.new(x0,     y0 + c) }, -- TL vert
+                        { Vector2.new(x0 + w, y0),     Vector2.new(x0 + w - c, y0) }, -- TR horz
+                        { Vector2.new(x0 + w, y0),     Vector2.new(x0 + w, y0 + c) }, -- TR vert
+                        { Vector2.new(x0,     y0 + h), Vector2.new(x0 + c, y0 + h) }, -- BL horz
+                        { Vector2.new(x0,     y0 + h), Vector2.new(x0,     y0 + h - c) }, -- BL vert
+                        { Vector2.new(x0 + w, y0 + h), Vector2.new(x0 + w - c, y0 + h) }, -- BR horz
+                        { Vector2.new(x0 + w, y0 + h), Vector2.new(x0 + w, y0 + h - c) }, -- BR vert
+                  };
+                  for i = 1, 8 do
+                      local seg = corners[i];
+                      local p   = pts[i];
+                      seg.From      = p[1];
+                      seg.To        = p[2];
+                      seg.Color     = boxColor;
+                      seg.Thickness = 1;
+                      seg.Visible   = true;
+                      if (setting.outline) then
+                            local so = cornersOut[i];
+                            so.From      = p[1];
+                            so.To        = p[2];
+                            so.Thickness = 3;
+                            so.Visible   = true;
+                      end;
+                  end;
+            else
+                  -- full box
+                  drawings.box.Position  = position;
+                  drawings.box.Size      = size;
+                  drawings.box.Visible   = true;
+
+                  if (setting.outline) then
+                        local o = drawings.boxOutline;
+                        o.Position = position;
+                        o.Size     = size;
+                        o.Visible  = true;
+                  end;
+            end;
       end;
       function playerESP:renderName(vector2, offset, enabled)
             local name = self.drawings.name;
+            local shadow = self.drawings.nameShadow;
 
             if (not enabled) then
                   name.Visible          = false;
+                  if (shadow) then shadow.Visible = false; end;
                   return;
             end;
             
+            local pos = vector2 - Vector2.new(0, offset.Y + name.Size);
             name.Visible      = true;
-            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size);
+            name.Position     = pos;
+            if (shadow) then
+                  shadow.Visible = true;
+                  shadow.Position= pos + Vector2.new(1, 1);
+                  shadow.Text    = name.Text;
+                  shadow.Size    = name.Size;
+                  shadow.Font    = name.Font;
+            end;
       end;
       function playerESP:renderDistance(vector2, offset, enabled, _distance)
             local distance = self.drawings.distance;
+            local shadow = self.drawings.distanceShadow;
 
             if (not enabled) then
                   distance.Visible          = false;
+                  if (shadow) then shadow.Visible = false; end;
                   return;
             end;
 
             local Yoffset     = self.drawings.weapon.Visible and 13 or 0;
             local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.current.rootPart.Position).Magnitude );
             
+            local text = `[{magnitude}]`;
+            local pos  = vector2 + Vector2.new(0, offset.Y + Yoffset);
             distance.Visible  = true;
-            distance.Position = vector2 + Vector2.new(0, offset.Y + Yoffset);
-            distance.Text     = `[{magnitude}]`;
+            distance.Position = pos;
+            distance.Text     = text;
+            if (shadow) then
+                  shadow.Visible = true;
+                  shadow.Position= pos + Vector2.new(1, 1);
+                  shadow.Text    = text;
+                  shadow.Size    = distance.Size;
+                  shadow.Font    = distance.Font;
+            end;
       end;
       function playerESP:renderWeapon(vector2, offset, enabled)
             local weapon = self.drawings.weapon;
+            local shadow = self.drawings.weaponShadow;
 
             if (not enabled) then
                   weapon.Visible          = false;
+                  if (shadow) then shadow.Visible = false; end;
                   return;
             end;
 
+            local text = self.current.weapon and string.lower(self.current.weapon.Name) or 'none';
+            local pos  = vector2 + Vector2.new(0, offset.Y);
             weapon.Visible  = true;
-            weapon.Position = vector2 + Vector2.new(0, offset.Y);
-            weapon.Text     = self.current.weapon and string.lower(self.current.weapon.Name) or 'none';
+            weapon.Position = pos;
+            weapon.Text     = text;
+            if (shadow) then
+                  shadow.Visible = true;
+                  shadow.Position= pos + Vector2.new(1, 1);
+                  shadow.Text    = text;
+                  shadow.Size    = weapon.Size;
+                  shadow.Font    = weapon.Font;
+            end;
       end;
       function playerESP:renderHealthbar(vector2, offset, enabled)
-            if (not enabled) then
-                  self.drawings.healthBar.Visible = false;
-                  self.drawings.healthBackground.Visible = false;
-                  return;
-            end;
-
             local healthBar         = self.drawings.healthBar;
             local healthBackground  = self.drawings.healthBackground;
 
-            healthBar.Visible = true;
+            if (not enabled) then
+                  healthBar.Visible = false;
+                  healthBackground.Visible = false;
+                  return;
+            end;
+
+            healthBar.Visible     = true;
             healthBackground.Visible = true;
 
-            local basePosition = vector2 - offset - Vector2.new(5, 0);
-            local baseSize = Vector2.new(3, offset.Y * 2);
+            if (HEALTHBAR_STYLE == 'snug') then
+                  -- flush against the box's left edge, thin, with a 1px black outline
+                  local barThickness = 2;
+                  local gap          = 1;
+                  local x            = vector2.X - offset.X - barThickness - gap;
+                  local top          = vector2.Y - offset.Y;
+                  local height       = offset.Y * 2;
+                  local healthLength = height * (self.current.healthPercentage or 0);
+                  local healthY      = top + (height - healthLength);
 
-            local healthLength = (baseSize.Y - 2) * self.current.healthPercentage;
-            local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
-            local healthSize = Vector2.new(1, healthLength);
+                  healthBackground.Filled    = false;
+                  healthBackground.Thickness = 1;
+                  healthBackground.Color     = Color3.new(0, 0, 0);
+                  healthBackground.Transparency = 1;
+                  healthBackground.Position  = Vector2.new(x - 1, top - 1);
+                  healthBackground.Size      = Vector2.new(barThickness + 2, height + 2);
 
-            healthBackground.Position     = basePosition;
-            healthBackground.Size         = baseSize;
+                  healthBar.Filled   = true;
+                  healthBar.Position = Vector2.new(x, healthY);
+                  healthBar.Size     = Vector2.new(barThickness, healthLength);
+            else
+                  -- classic floating healthbar
+                  local basePosition = vector2 - offset - Vector2.new(5, 0);
+                  local baseSize = Vector2.new(3, offset.Y * 2);
 
-            healthBar.Position            = healthPosition;
-            healthBar.Size                = healthSize;
+                  local healthLength = (baseSize.Y - 2) * self.current.healthPercentage;
+                  local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
+                  local healthSize = Vector2.new(1, healthLength);
+
+                  healthBackground.Filled    = true;
+                  healthBackground.Color     = Color3.new(0.239215, 0.239215, 0.239215);
+                  healthBackground.Transparency = 0.7;
+                  healthBackground.Position  = basePosition;
+                  healthBackground.Size      = baseSize;
+
+                  healthBar.Position         = healthPosition;
+                  healthBar.Size             = healthSize;
+            end;
       end;
 
       espLibrary.playerESP = playerESP;
@@ -537,7 +723,32 @@ do
       function entityESP:createDrawingCache()
             local allDrawings = {};
 
+            local function makeText(props)
+                  local d = createDrawing('Text', {
+                        Visible           = false;
+                        Center            = true;
+                        Outline           = not TEXT_SHADOW;   -- shadow replaces outline when enabled
+                        OutlineColor      = Color3.new(0, 0, 0);
+                        Color             = self.colour;
+                        Transparency      = 1;
+                        Size              = GLOBAL_SIZE;
+                        Font              = GLOBAL_FONT;
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings);
+                  for k, v in pairs(props) do
+                        d[k] = v;
+                  end;
+                  return d;
+            end;
+
             local drawings = {
+                  boxFill = createDrawing('Square', {
+                        Visible           = false;
+                        Color             = self.colour;
+                        Transparency      = 1;
+                        Filled            = true;
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings);
                   box = createDrawing('Square', {
                         Visible           = false;
                         Filled            = false;
@@ -553,30 +764,32 @@ do
                         ZIndex            = BASE_ZINDEX;
                   }, allDrawings);
 
-                  name = createDrawing('Text', {
-                        Visible           = false;
-                        Center            = true;
-                        Outline           = true;
-                        OutlineColor      = Color3.new(0, 0, 0);
-                        Color             = self.colour;
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
-                        Text              = self.name;
-                        Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
-                  }, allDrawings);
-                  distance = createDrawing('Text', {
-                        Visible           = false;
-                        Center            = true;
-                        Outline           = true;
-                        OutlineColor      = Color3.new(0, 0, 0);
-                        Color             = self.colour;
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
-                        Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
-                  }, allDrawings);
+                  name = makeText({ Text = self.name; }),
+                  distance = makeText({}),
             };
+
+            if (TEXT_SHADOW) then
+                  drawings.nameShadow     = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  drawings.distanceShadow = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+            end;
+
+            drawings.boxCorners = {};
+            drawings.boxCornersOutline = {};
+            for i = 1, 16 do
+                  local isOutline = i > 8;
+                  local seg = createDrawing('Line', {
+                        Visible           = false;
+                        Thickness         = 1;
+                        Color             = isOutline and Color3.new(0, 0, 0) or self.colour;
+                        ZIndex            = isOutline and (BASE_ZINDEX) or (BASE_ZINDEX + 1);
+                  }, allDrawings);
+                  if (isOutline) then
+                        drawings.boxCornersOutline[i - 8] = seg;
+                  else
+                        drawings.boxCorners[i] = seg;
+                  end;
+            end;
+
             drawings.all = allDrawings;
 
             self.drawings = drawings;
@@ -622,51 +835,121 @@ do
       -- render functions
       function entityESP:renderBox(vector2, offset, enabled)
             local drawings = self.drawings;
+            local setting  = resolveBoxSetting(enabled);
 
-            if (not enabled) then
-                  drawings.box.Visible          = false;
-                  drawings.boxOutline.Visible   = false;
+            drawings.box.Visible        = false;
+            drawings.boxOutline.Visible = false;
+            drawings.boxFill.Visible    = false;
+            local corners    = drawings.boxCorners;
+            local cornersOut = drawings.boxCornersOutline;
+            for i = 1, 8 do
+                  corners[i].Visible    = false;
+                  cornersOut[i].Visible = false;
+            end;
+
+            if (not setting) then
                   return;
             end;
 
-            local fill        = drawings.box;
-            local outline     = drawings.boxOutline;
+            local position = vector2 - offset;
+            local size     = offset * 2;
+            local boxColor = drawings.box.Color;
 
-            local position    = vector2 - offset;
-            local size        = offset * 2;
-            
-            fill.Visible      = true;
-            fill.Position     = position;
-            fill.Size         = size;
+            if (setting.fill) then
+                  local f = drawings.boxFill;
+                  f.Visible      = true;
+                  f.Position     = position;
+                  f.Size         = size;
+                  f.Color        = setting.fillColor or boxColor;
+                  f.Transparency = setting.fillAlpha;
+            end;
 
-            outline.Visible   = true;
-            outline.Position  = position;
-            outline.Size      = size;
+            if (setting.mode == 'corner') then
+                  local x0, y0 = position.X, position.Y;
+                  local w, h   = size.X, size.Y;
+                  local c      = math.min(w, h) * (setting.cornerLen or 0.25);
+                  local pts = {
+                        { Vector2.new(x0,     y0),     Vector2.new(x0 + c, y0)         };
+                        { Vector2.new(x0,     y0),     Vector2.new(x0,     y0 + c)     };
+                        { Vector2.new(x0 + w, y0),     Vector2.new(x0 + w - c, y0)     };
+                        { Vector2.new(x0 + w, y0),     Vector2.new(x0 + w, y0 + c)     };
+                        { Vector2.new(x0,     y0 + h), Vector2.new(x0 + c, y0 + h)     };
+                        { Vector2.new(x0,     y0 + h), Vector2.new(x0,     y0 + h - c) };
+                        { Vector2.new(x0 + w, y0 + h), Vector2.new(x0 + w - c, y0 + h) };
+                        { Vector2.new(x0 + w, y0 + h), Vector2.new(x0 + w, y0 + h - c) };
+                  };
+                  for i = 1, 8 do
+                        local seg = corners[i];
+                        local p   = pts[i];
+                        seg.From      = p[1];
+                        seg.To        = p[2];
+                        seg.Color     = boxColor;
+                        seg.Thickness = 1;
+                        seg.Visible   = true;
+                        if (setting.outline) then
+                              local so = cornersOut[i];
+                              so.From      = p[1];
+                              so.To        = p[2];
+                              so.Thickness = 3;
+                              so.Visible   = true;
+                        end;
+                  end;
+            else
+                  drawings.box.Position = position;
+                  drawings.box.Size     = size;
+                  drawings.box.Visible  = true;
+                  if (setting.outline) then
+                        local o = drawings.boxOutline;
+                        o.Position = position;
+                        o.Size     = size;
+                        o.Visible  = true;
+                  end;
+            end;
       end;
       function entityESP:renderName(vector2, offset, enabled)
             local name = self.drawings.name;
+            local shadow = self.drawings.nameShadow;
 
             if (not enabled) then
                   name.Visible          = false;
+                  if (shadow) then shadow.Visible = false; end;
                   return;
             end;
             
-            name.Visible      = true;
-            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size);
+            local pos = vector2 - Vector2.new(0, offset.Y + name.Size);
+            name.Visible  = true;
+            name.Position = pos;
+            if (shadow) then
+                  shadow.Visible  = true;
+                  shadow.Position = pos + Vector2.new(1, 1);
+                  shadow.Text     = name.Text;
+                  shadow.Size     = name.Size;
+                  shadow.Font     = name.Font;
+            end;
       end;
       function entityESP:renderDistance(vector2, offset, enabled, _distance)
             local distance = self.drawings.distance;
+            local shadow = self.drawings.distanceShadow;
 
             if (not enabled) then
                   distance.Visible          = false;
+                  if (shadow) then shadow.Visible = false; end;
                   return;
             end;
 
             local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.entity:GetPivot().Position).Magnitude );
-            
+            local text = `[{magnitude}]`;
+            local pos  = vector2 + Vector2.new(0, offset.Y);
             distance.Visible  = true;
-            distance.Position = vector2 + Vector2.new(0, offset.Y);
-            distance.Text     = `[{magnitude}]`;
+            distance.Position = pos;
+            distance.Text     = text;
+            if (shadow) then
+                  shadow.Visible  = true;
+                  shadow.Position = pos + Vector2.new(1, 1);
+                  shadow.Text     = text;
+                  shadow.Size     = distance.Size;
+                  shadow.Font     = distance.Font;
+            end;
       end;
 
       espLibrary.entityESP = entityESP;
@@ -777,7 +1060,32 @@ do
       function npcESP:createDrawingCache()
             local allDrawings = {};
 
+            local function makeText(props)
+                  local d = createDrawing('Text', {
+                        Visible           = false;
+                        Center            = true;
+                        Outline           = not TEXT_SHADOW;   -- shadow replaces outline when enabled
+                        OutlineColor      = Color3.new(0, 0, 0);
+                        Color             = self.colour;
+                        Transparency      = 1;
+                        Size              = GLOBAL_SIZE;
+                        Font              = GLOBAL_FONT;
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings);
+                  for k, v in pairs(props) do
+                        d[k] = v;
+                  end;
+                  return d;
+            end;
+
             local drawings = {
+                  boxFill = createDrawing('Square', {
+                        Visible           = false;
+                        Color             = self.colour;
+                        Transparency      = 1;
+                        Filled            = true;
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings);
                   box = createDrawing('Square', {
                         Visible           = false;
                         Filled            = false;
@@ -793,29 +1101,8 @@ do
                         ZIndex            = BASE_ZINDEX;
                   }, allDrawings);
 
-                  name = createDrawing('Text', {
-                        Visible           = false;
-                        Center            = true;
-                        Outline           = true;
-                        OutlineColor      = Color3.new(0, 0, 0);
-                        Color             = self.colour;
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
-                        Text              = self.name;
-                        Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
-                  }, allDrawings);
-                  distance = createDrawing('Text', {
-                        Visible           = false;
-                        Center            = true;
-                        Outline           = true;
-                        OutlineColor      = Color3.new(0, 0, 0);
-                        Color             = self.colour;
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
-                        Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
-                  }, allDrawings);
+                  name = makeText({ Text = self.name; }),
+                  distance = makeText({}),
 
                   healthBar = createDrawing('Square', {
                         Visible           = false;
@@ -825,13 +1112,36 @@ do
                   }, allDrawings);
                   healthBackground = createDrawing('Square', {
                         Visible           = false;
-                        Color             = Color3.new(0.239215, 0.239215, 0.239215);
-                        Transparency      = 0.7;
+                        Color             = Color3.new(0, 0, 0);
+                        Transparency      = 1;
                         Thickness         = 1;
-                        Filled            = true;
+                        Filled            = false;
                         ZIndex            = BASE_ZINDEX;
                   }, allDrawings);
             };
+
+            if (TEXT_SHADOW) then
+                  drawings.nameShadow     = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+                  drawings.distanceShadow = makeText({ Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX - 1; });
+            end;
+
+            drawings.boxCorners = {};
+            drawings.boxCornersOutline = {};
+            for i = 1, 16 do
+                  local isOutline = i > 8;
+                  local seg = createDrawing('Line', {
+                        Visible           = false;
+                        Thickness         = 1;
+                        Color             = isOutline and Color3.new(0, 0, 0) or self.colour;
+                        ZIndex            = isOutline and (BASE_ZINDEX) or (BASE_ZINDEX + 1);
+                  }, allDrawings);
+                  if (isOutline) then
+                        drawings.boxCornersOutline[i - 8] = seg;
+                  else
+                        drawings.boxCorners[i] = seg;
+                  end;
+            end;
+
             drawings.all = allDrawings;
 
             self.drawings = drawings;
@@ -904,77 +1214,171 @@ do
       -- render functions
       function npcESP:renderBox(vector2, offset, enabled)
             local drawings = self.drawings;
+            local setting  = resolveBoxSetting(enabled);
 
-            if (not enabled) then
-                  drawings.box.Visible          = false;
-                  drawings.boxOutline.Visible   = false;
+            drawings.box.Visible        = false;
+            drawings.boxOutline.Visible = false;
+            drawings.boxFill.Visible    = false;
+            local corners    = drawings.boxCorners;
+            local cornersOut = drawings.boxCornersOutline;
+            for i = 1, 8 do
+                  corners[i].Visible    = false;
+                  cornersOut[i].Visible = false;
+            end;
+
+            if (not setting) then
                   return;
             end;
 
-            local fill        = drawings.box;
-            local outline     = drawings.boxOutline;
+            local position = vector2 - offset;
+            local size     = offset * 2;
+            local boxColor = drawings.box.Color;
 
-            local position    = vector2 - offset;
-            local size        = offset * 2;
-            
-            fill.Visible      = true;
-            fill.Position     = position;
-            fill.Size         = size;
+            if (setting.fill) then
+                  local f = drawings.boxFill;
+                  f.Visible      = true;
+                  f.Position     = position;
+                  f.Size         = size;
+                  f.Color        = setting.fillColor or boxColor;
+                  f.Transparency = setting.fillAlpha;
+            end;
 
-            outline.Visible   = true;
-            outline.Position  = position;
-            outline.Size      = size;
+            if (setting.mode == 'corner') then
+                  local x0, y0 = position.X, position.Y;
+                  local w, h   = size.X, size.Y;
+                  local c      = math.min(w, h) * (setting.cornerLen or 0.25);
+                  local pts = {
+                        { Vector2.new(x0,     y0),     Vector2.new(x0 + c, y0)         };
+                        { Vector2.new(x0,     y0),     Vector2.new(x0,     y0 + c)     };
+                        { Vector2.new(x0 + w, y0),     Vector2.new(x0 + w - c, y0)     };
+                        { Vector2.new(x0 + w, y0),     Vector2.new(x0 + w, y0 + c)     };
+                        { Vector2.new(x0,     y0 + h), Vector2.new(x0 + c, y0 + h)     };
+                        { Vector2.new(x0,     y0 + h), Vector2.new(x0,     y0 + h - c) };
+                        { Vector2.new(x0 + w, y0 + h), Vector2.new(x0 + w - c, y0 + h) };
+                        { Vector2.new(x0 + w, y0 + h), Vector2.new(x0 + w, y0 + h - c) };
+                  };
+                  for i = 1, 8 do
+                        local seg = corners[i];
+                        local p   = pts[i];
+                        seg.From      = p[1];
+                        seg.To        = p[2];
+                        seg.Color     = boxColor;
+                        seg.Thickness = 1;
+                        seg.Visible   = true;
+                        if (setting.outline) then
+                              local so = cornersOut[i];
+                              so.From      = p[1];
+                              so.To        = p[2];
+                              so.Thickness = 3;
+                              so.Visible   = true;
+                        end;
+                  end;
+            else
+                  drawings.box.Position = position;
+                  drawings.box.Size     = size;
+                  drawings.box.Visible  = true;
+                  if (setting.outline) then
+                        local o = drawings.boxOutline;
+                        o.Position = position;
+                        o.Size     = size;
+                        o.Visible  = true;
+                  end;
+            end;
       end;
       function npcESP:renderName(vector2, offset, enabled)
             local name = self.drawings.name;
+            local shadow = self.drawings.nameShadow;
 
             if (not enabled) then
                   name.Visible          = false;
+                  if (shadow) then shadow.Visible = false; end;
                   return;
             end;
             
-            name.Visible      = true;
-            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size);
+            local pos = vector2 - Vector2.new(0, offset.Y + name.Size);
+            name.Visible  = true;
+            name.Position = pos;
+            if (shadow) then
+                  shadow.Visible  = true;
+                  shadow.Position = pos + Vector2.new(1, 1);
+                  shadow.Text     = name.Text;
+                  shadow.Size     = name.Size;
+                  shadow.Font     = name.Font;
+            end;
       end;
       function npcESP:renderDistance(vector2, offset, enabled, _distance)
             local distance = self.drawings.distance;
+            local shadow = self.drawings.distanceShadow;
 
             if (not enabled) then
                   distance.Visible          = false;
+                  if (shadow) then shadow.Visible = false; end;
                   return;
             end;
 
             local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.entity:GetPivot().Position).Magnitude );
-            
+            local text = `[{magnitude}]`;
+            local pos  = vector2 + Vector2.new(0, offset.Y);
             distance.Visible  = true;
-            distance.Position = vector2 + Vector2.new(0, offset.Y);
-            distance.Text     = `[{magnitude}]`;
+            distance.Position = pos;
+            distance.Text     = text;
+            if (shadow) then
+                  shadow.Visible  = true;
+                  shadow.Position = pos + Vector2.new(1, 1);
+                  shadow.Text     = text;
+                  shadow.Size     = distance.Size;
+                  shadow.Font     = distance.Font;
+            end;
       end;
       function npcESP:renderHealthbar(vector2, offset, enabled)
-            if (not enabled) then
-                  self.drawings.healthBar.Visible = false;
-                  self.drawings.healthBackground.Visible = false;
-                  return;
-            end;
-
             local healthBar         = self.drawings.healthBar;
             local healthBackground  = self.drawings.healthBackground;
 
-            healthBar.Visible = true;
+            if (not enabled) then
+                  healthBar.Visible = false;
+                  healthBackground.Visible = false;
+                  return;
+            end;
+
+            healthBar.Visible     = true;
             healthBackground.Visible = true;
 
-            local basePosition = vector2 - offset - Vector2.new(5, 0);
-            local baseSize = Vector2.new(3, offset.Y * 2);
+            if (HEALTHBAR_STYLE == 'snug') then
+                  local barThickness = 2;
+                  local gap          = 1;
+                  local x            = vector2.X - offset.X - barThickness - gap;
+                  local top          = vector2.Y - offset.Y;
+                  local height       = offset.Y * 2;
+                  local healthLength = height * (self.healthPercentage or 0);
+                  local healthY      = top + (height - healthLength);
 
-            local healthLength = (baseSize.Y - 2) * self.healthPercentage;
-            local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
-            local healthSize = Vector2.new(1, healthLength);
+                  healthBackground.Filled    = false;
+                  healthBackground.Thickness = 1;
+                  healthBackground.Color     = Color3.new(0, 0, 0);
+                  healthBackground.Transparency = 1;
+                  healthBackground.Position  = Vector2.new(x - 1, top - 1);
+                  healthBackground.Size      = Vector2.new(barThickness + 2, height + 2);
 
-            healthBackground.Position     = basePosition;
-            healthBackground.Size         = baseSize;
+                  healthBar.Filled   = true;
+                  healthBar.Position = Vector2.new(x, healthY);
+                  healthBar.Size     = Vector2.new(barThickness, healthLength);
+            else
+                  local basePosition = vector2 - offset - Vector2.new(5, 0);
+                  local baseSize = Vector2.new(3, offset.Y * 2);
 
-            healthBar.Position            = healthPosition;
-            healthBar.Size                = healthSize;
+                  local healthLength = (baseSize.Y - 2) * self.healthPercentage;
+                  local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
+                  local healthSize = Vector2.new(1, healthLength);
+
+                  healthBackground.Filled    = true;
+                  healthBackground.Color     = Color3.new(0.239215, 0.239215, 0.239215);
+                  healthBackground.Transparency = 0.7;
+                  healthBackground.Position  = basePosition;
+                  healthBackground.Size      = baseSize;
+
+                  healthBar.Position         = healthPosition;
+                  healthBar.Size             = healthSize;
+            end;
       end;
 
 
