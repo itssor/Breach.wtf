@@ -249,6 +249,16 @@ do
                   weapon = makeText({}),
             };
 
+            -- CSGO-style health cap line (white tick on top of health fill)
+            pcall(function()
+                  drawings.healthCap = createDrawing('Line', {
+                        Visible   = false;
+                        Thickness = 1;
+                        Color     = Color3.new(1, 1, 1);
+                        ZIndex    = BASE_ZINDEX + 2;
+                  }, allDrawings);
+            end);
+
             -- text shadows (drawn just behind their labels)
             if (TEXT_SHADOW) then
                   local ok, ns = pcall(makeText, { Color = Color3.new(0, 0, 0); Outline = false; ZIndex = BASE_ZINDEX; });
@@ -328,7 +338,25 @@ do
             self.current.maxHealth        = maxHealth;
             self.current.healthPercentage = healthPercentage;
 
-            self.drawings.healthBar.Color = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), healthPercentage);
+            -- CSGO-style: green -> yellow -> red
+            local pct = healthPercentage;
+            local barColor;
+            if pct >= 0.5 then
+                  local t = (pct - 0.5) * 2;
+                  barColor = Color3.fromRGB(
+                        math.floor((1 - t) * 255),
+                        math.floor(t * 255 + (1 - t) * 200),
+                        math.floor(t * 80)
+                  );
+            else
+                  local t = pct * 2;
+                  barColor = Color3.fromRGB(
+                        255,
+                        math.floor(t * 200),
+                        0
+                  );
+            end;
+            self.drawings.healthBar.Color = barColor;
       end;
       function playerESP:setupHumanoid(humanoid: Humanoid, firstTime)
 
@@ -508,78 +536,61 @@ do
                   for i = 1, 8 do
                       local seg = corners[i];
                       local p   = pts[i];
-                      seg.From      = p[1];
-                      seg.To        = p[2];
-                      seg.Color     = boxColor;
-                      seg.Thickness = 1;
-                      seg.Visible   = true;
+                      -- shadow outline pass first (black, thick)
                       if (setting.outline and cornersOut[i]) then
                             local so = cornersOut[i];
                             so.From      = p[1];
                             so.To        = p[2];
-                            so.Thickness = 3;
+                            so.Color     = Color3.new(0, 0, 0);
+                            so.Thickness = 3.5;
                             so.Visible   = true;
                       end;
+                      -- colored bracket on top
+                      seg.From      = p[1];
+                      seg.To        = p[2];
+                      seg.Color     = boxColor;
+                      seg.Thickness = 1.5;
+                      seg.Visible   = true;
                   end;
             else
-                  -- full box
-                  drawings.box.Position  = position;
-                  drawings.box.Size      = size;
-                  drawings.box.Visible   = true;
-
+                  -- full box: shadow outline first, then colored rect on top
                   if (setting.outline) then
                         local o = drawings.boxOutline;
-                        o.Position = position;
-                        o.Size     = size;
-                        o.Visible  = true;
+                        o.Position  = position - Vector2.new(1, 1);
+                        o.Size      = size + Vector2.new(2, 2);
+                        o.Color     = Color3.new(0, 0, 0);
+                        o.Thickness = 2;
+                        o.Visible   = true;
                   end;
+                  drawings.box.Position  = position;
+                  drawings.box.Size      = size;
+                  drawings.box.Thickness = 1;
+                  drawings.box.Visible   = true;
             end;
       end;
       function playerESP:renderName(vector2, offset, enabled)
-            local name = self.drawings.name;
+            local name   = self.drawings.name;
             local shadow = self.drawings.nameShadow;
 
             if (not enabled) then
-                  name.Visible          = false;
-                  if (shadow) then shadow.Visible = false; end;
-                  return;
-            end;
-            
-            local pos = vector2 - Vector2.new(0, offset.Y + name.Size);
-            name.Visible      = true;
-            name.Position     = pos;
-            if (shadow) then
-                  shadow.Visible = true;
-                  shadow.Position= pos + Vector2.new(1, 1);
-                  shadow.Text    = name.Text;
-                  shadow.Size    = name.Size;
-                  shadow.Font    = name.Font;
-            end;
-      end;
-      function playerESP:renderDistance(vector2, offset, enabled, _distance)
-            local distance = self.drawings.distance;
-            local shadow = self.drawings.distanceShadow;
-
-            if (not enabled) then
-                  distance.Visible          = false;
+                  name.Visible = false;
                   if (shadow) then shadow.Visible = false; end;
                   return;
             end;
 
-            local Yoffset     = self.drawings.weapon.Visible and 13 or 0;
-            local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.current.rootPart.Position).Magnitude );
-            
-            local text = `[{magnitude}]`;
-            local pos  = vector2 + Vector2.new(0, offset.Y + Yoffset);
-            distance.Visible  = true;
-            distance.Position = pos;
-            distance.Text     = text;
+            -- CSGO-style: centered tight above box, 2px gap
+            local pos = Vector2.new(
+                  math.floor(vector2.X),
+                  math.floor(vector2.Y - offset.Y - name.Size - 2)
+            );
+            name.Visible  = true;
+            name.Position = pos;
             if (shadow) then
-                  shadow.Visible = true;
-                  shadow.Position= pos + Vector2.new(1, 1);
-                  shadow.Text    = text;
-                  shadow.Size    = distance.Size;
-                  shadow.Font    = distance.Font;
+                  shadow.Visible  = true;
+                  shadow.Position = pos + Vector2.new(1, 1);
+                  shadow.Text     = name.Text;
+                  shadow.Size     = name.Size;
+                  shadow.Font     = name.Font;
             end;
       end;
       function playerESP:renderWeapon(vector2, offset, enabled)
@@ -587,74 +598,114 @@ do
             local shadow = self.drawings.weaponShadow;
 
             if (not enabled) then
-                  weapon.Visible          = false;
+                  weapon.Visible = false;
                   if (shadow) then shadow.Visible = false; end;
                   return;
             end;
 
-            local text = self.current.weapon and string.lower(self.current.weapon.Name) or 'none';
-            local pos  = vector2 + Vector2.new(0, offset.Y);
+            -- CSGO-style: weapon name directly below box, lowercase, tight
+            local text = self.current.weapon and string.lower(self.current.weapon.Name) or '';
+            local pos  = Vector2.new(
+                  math.floor(vector2.X),
+                  math.floor(vector2.Y + offset.Y + 2)
+            );
             weapon.Visible  = true;
             weapon.Position = pos;
             weapon.Text     = text;
             if (shadow) then
-                  shadow.Visible = true;
-                  shadow.Position= pos + Vector2.new(1, 1);
-                  shadow.Text    = text;
-                  shadow.Size    = weapon.Size;
-                  shadow.Font    = weapon.Font;
+                  shadow.Visible  = true;
+                  shadow.Position = pos + Vector2.new(1, 1);
+                  shadow.Text     = text;
+                  shadow.Size     = weapon.Size;
+                  shadow.Font     = weapon.Font;
+            end;
+      end;
+      function playerESP:renderDistance(vector2, offset, enabled, _distance)
+            local distance = self.drawings.distance;
+            local shadow   = self.drawings.distanceShadow;
+
+            if (not enabled) then
+                  distance.Visible = false;
+                  if (shadow) then shadow.Visible = false; end;
+                  return;
+            end;
+
+            -- stack below weapon label if visible, otherwise directly below box
+            local weaponOffset = self.drawings.weapon.Visible and (self.drawings.weapon.Size + 2) or 0;
+            local magnitude    = math.round(_distance or (currentCamera.CFrame.Position - self.current.rootPart.Position).Magnitude);
+            local text         = string.format('%dm', magnitude);
+            local pos          = Vector2.new(
+                  math.floor(vector2.X),
+                  math.floor(vector2.Y + offset.Y + 2 + weaponOffset)
+            );
+            distance.Visible  = true;
+            distance.Position = pos;
+            distance.Text     = text;
+            if (shadow) then
+                  shadow.Visible  = true;
+                  shadow.Position = pos + Vector2.new(1, 1);
+                  shadow.Text     = text;
+                  shadow.Size     = distance.Size;
+                  shadow.Font     = distance.Font;
             end;
       end;
       function playerESP:renderHealthbar(vector2, offset, enabled)
-            local healthBar         = self.drawings.healthBar;
-            local healthBackground  = self.drawings.healthBackground;
+            local healthBar        = self.drawings.healthBar;
+            local healthBackground = self.drawings.healthBackground;
 
             if (not enabled) then
-                  healthBar.Visible = false;
+                  healthBar.Visible        = false;
                   healthBackground.Visible = false;
                   return;
             end;
 
-            healthBar.Visible     = true;
-            healthBackground.Visible = true;
+            local pct        = math.clamp(self.current.healthPercentage or 0, 0, 1);
+            local barW       = 3;
+            local gap        = 2;
+            local top        = vector2.Y - offset.Y;
+            local height     = offset.Y * 2;
+            local x          = vector2.X - offset.X - barW - gap;
 
-            if (HEALTHBAR_STYLE == 'snug') then
-                  -- flush against the box's left edge, thin, with a 1px black outline
-                  local barThickness = 2;
-                  local gap          = 1;
-                  local x            = vector2.X - offset.X - barThickness - gap;
-                  local top          = vector2.Y - offset.Y;
-                  local height       = offset.Y * 2;
-                  local healthLength = height * (self.current.healthPercentage or 0);
-                  local healthY      = top + (height - healthLength);
+            -- CSGO-style: dark background rect with 1px black border
+            healthBackground.Filled       = true;
+            healthBackground.Color        = Color3.fromRGB(20, 20, 20);
+            healthBackground.Transparency = 0.45;
+            healthBackground.Position     = Vector2.new(x - 1, top - 1);
+            healthBackground.Size         = Vector2.new(barW + 2, height + 2);
+            healthBackground.Visible      = true;
 
-                  healthBackground.Filled    = false;
-                  healthBackground.Thickness = 1;
-                  healthBackground.Color     = Color3.new(0, 0, 0);
-                  healthBackground.Transparency = 1;
-                  healthBackground.Position  = Vector2.new(x - 1, top - 1);
-                  healthBackground.Size      = Vector2.new(barThickness + 2, height + 2);
-
-                  healthBar.Filled   = true;
-                  healthBar.Position = Vector2.new(x, healthY);
-                  healthBar.Size     = Vector2.new(barThickness, healthLength);
+            -- health fill: green->yellow->red gradient
+            local barColor;
+            if pct >= 0.5 then
+                  local t = (pct - 0.5) * 2;
+                  barColor = Color3.fromRGB(
+                        math.floor((1 - t) * 255),
+                        math.floor(t * 200 + (1 - t) * 210),
+                        math.floor(t * 60)
+                  );
             else
-                  -- classic floating healthbar
-                  local basePosition = vector2 - offset - Vector2.new(5, 0);
-                  local baseSize = Vector2.new(3, offset.Y * 2);
+                  local t = pct * 2;
+                  barColor = Color3.fromRGB(255, math.floor(t * 210), 0);
+            end;
 
-                  local healthLength = (baseSize.Y - 2) * self.current.healthPercentage;
-                  local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
-                  local healthSize = Vector2.new(1, healthLength);
+            local fillHeight = math.max(1, height * pct);
+            local fillY      = top + (height - fillHeight);
 
-                  healthBackground.Filled    = true;
-                  healthBackground.Color     = Color3.new(0.239215, 0.239215, 0.239215);
-                  healthBackground.Transparency = 0.7;
-                  healthBackground.Position  = basePosition;
-                  healthBackground.Size      = baseSize;
+            healthBar.Filled      = true;
+            healthBar.Color       = barColor;
+            healthBar.Transparency= 1;
+            healthBar.Position    = Vector2.new(x, fillY);
+            healthBar.Size        = Vector2.new(barW, fillHeight);
+            healthBar.Visible     = true;
 
-                  healthBar.Position         = healthPosition;
-                  healthBar.Size             = healthSize;
+            -- CSGO-style cap line on top of the health fill
+            if self.drawings.healthCap then
+                  local cap = self.drawings.healthCap;
+                  cap.From      = Vector2.new(x, fillY);
+                  cap.To        = Vector2.new(x + barW, fillY);
+                  cap.Color     = Color3.new(1, 1, 1);
+                  cap.Thickness = 1;
+                  cap.Visible   = pct < 0.99;
             end;
       end;
 
