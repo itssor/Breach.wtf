@@ -4,11 +4,13 @@ local compareinstances  = compareinstances or rawequal;
 local runService        = cloneref(game:GetService('RunService'));
 local currentCamera     = cloneref(workspace.CurrentCamera);
 
--- Load custom font
-local CustomFont
-pcall(function()
-	CustomFont = Font.new("https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/proggy-tiny.ttf")
-end)
+-- Load custom font (optional - will fallback to system fonts if unavailable)
+local CustomFont = nil
+if typeof(Font) == "table" then
+	pcall(function()
+		CustomFont = Font.new("https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/proggy-tiny.ttf")
+	end)
+end
 
 local createGuiFrame = function(parent, properties, ...)
 	local frame = Instance.new("Frame")
@@ -27,9 +29,12 @@ local createGuiLabel = function(parent, properties, ...)
 	local label = Instance.new("TextLabel")
 	label.BackgroundTransparency = 1
 	label.BorderSizePixel = 0
-	if CustomFont then
-		label.FontFace = CustomFont
-	else
+	if CustomFont ~= nil then
+		pcall(function()
+			label.FontFace = CustomFont
+		end)
+	end
+	if not label.FontFace or label.FontFace == nil then
 		label.Font = Enum.Font.GothamMedium
 	end
 	for i, value in pairs(properties) do
