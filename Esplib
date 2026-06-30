@@ -1,7 +1,7 @@
 local cloneref          = cloneref or function(...) return ...; end;
 local compareinstances  = compareinstances or rawequal;
 
-local runService        = cloneref(GetService('RunService'));
+local runService        = cloneref(game:GetService('RunService'));
 
 local currentCamera     = cloneref(workspace.CurrentCamera);
 
@@ -10,7 +10,7 @@ local espGui = Instance.new('ScreenGui');
 espGui.Name = 'ESPGui';
 espGui.ResetOnSpawn = false;
 espGui.IgnoreGuiInset = true;
-espGui.Parent = GetService('CoreGui');
+espGui.Parent = game:GetService('CoreGui');
 
 local createFrame = function(_name, properties)
       local frame = Instance.new('Frame');
