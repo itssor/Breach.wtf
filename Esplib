@@ -2,21 +2,27 @@ local cloneref          = cloneref or function(...) return ...; end;
 local compareinstances  = compareinstances or rawequal;
 
 local runService        = cloneref(game:GetService('RunService'));
-local currentCamera     = cloneref(workspace.CurrentCamera);
-local Players           = cloneref(game:GetService('Players'));
-local playerGui         = cloneref(Players.LocalPlayer:WaitForChild('PlayerGui'));
 
--- Create ScreenGui for all ESP elements
-local espGui = Instance.new('ScreenGui');
-espGui.Name = 'ESPGui';
-espGui.ResetOnSpawn = false;
-espGui.IgnoreGuiInset = true;
-espGui.Parent = playerGui;
+local currentCamera     = cloneref(workspace.CurrentCamera);
+
+-- Create ScreenGui for all ESP elements (lazy load)
+local espGui = nil;
+local function getEspGui()
+      if not espGui then
+            local playerGui = game.Players.LocalPlayer:WaitForChild('PlayerGui');
+            espGui = Instance.new('ScreenGui');
+            espGui.Name = 'ESPGui';
+            espGui.ResetOnSpawn = false;
+            espGui.IgnoreGuiInset = true;
+            espGui.Parent = playerGui;
+      end;
+      return espGui;
+end;
 
 local createFrame = function(_name, properties)
       local frame = Instance.new('Frame');
       frame.Name = _name;
-      frame.Parent = espGui;
+      frame.Parent = getEspGui();
       
       -- Apply default properties
       frame.Visible = false;
@@ -34,7 +40,7 @@ end;
 local createTextLabel = function(_name, properties)
       local textLabel = Instance.new('TextLabel');
       textLabel.Name = _name;
-      textLabel.Parent = espGui;
+      textLabel.Parent = getEspGui();
       
       -- Apply default properties
       textLabel.Visible = false;
