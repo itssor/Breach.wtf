@@ -136,6 +136,7 @@ do
                         Thickness         = 1;
                         Color             = Color3.new(1, 1, 1);
                         Filled            = false;
+                        CornerRadius      = 3;
                         ZIndex            = BASE_ZINDEX + 1;
                   }, allDrawings);
                   boxOutline = createDrawing('Square', {
@@ -207,46 +208,82 @@ do
             if (self.hidden) then
                   return;
             end;
+
             self.hidden = true;
             for i = 1, #self.allDrawings do
                   self.allDrawings[i].Visible = false;
             end;
       end;
+
+      --character functions
+      function playerESP:setNonActive()
+            if (self.current.active == false) then
+                  return;
+            end;
+            self.current.active = false;
+            for i = 1, #self.allDrawings do
+                  self.allDrawings[i].Visible = false;
+            end;
+      end;
       function playerESP:humanoidHealthChanged()
-            local humanoid          = self.current;
+            local humanoid                = self.current.humanoid;
 
-            local health            = humanoid.Health;
-            local maxHealth         = humanoid.MaxHealth;
+            local health                  = humanoid.Health;
+            local maxHealth               = humanoid.MaxHealth;
+            local healthPercentage        = health / maxHealth;
 
-            local healthPercentage  = health / maxHealth;
-            
-            self.health             = health;
-            self.maxHealth          = maxHealth;
-            self.healthPercentage   = healthPercentage;
+            if (self.current.rootPart and health > 0) then
+                  self.current.active = true;
+            else
+                  self:setNonActive();
+            end;
 
-            -- GREEN to RED gradient (green at 100%, red at 0%)
-            self.drawings.healthBar.Color = Color3.new(0, 1, 0):Lerp(Color3.new(1, 0, 0), 1 - healthPercentage);
+            self.current.health           = health;
+            self.current.maxHealth        = maxHealth;
+            self.current.healthPercentage = healthPercentage;
+
+            self.drawings.healthBar.Color = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), healthPercentage);
+      end;
+      function playerESP:setupHumanoid(humanoid: Humanoid, firstTime)
+
+            self:humanoidHealthChanged();
+
+            table.insert(self.connections, humanoid:GetPropertyChangedSignal('Health'):Connect(function()
+                  self:humanoidHealthChanged();
+            end));
+
+            if (firstTime) then
+                  local childAddedConnections = self.childAddedConnections;
+                  local characterChildren = self.current.character:GetChildren();
+
+                  for i = 1, #characterChildren do
+                        local child = characterChildren[i];
+                        for i = 1, #childAddedConnections do
+                              childAddedConnections[i](self, child);
+                        end;
+                  end;
+            end;
       end;
       function playerESP:loop(settings, distance)
+            local current = self.current;
 
-            local useR15 = self.current ~= nil;
-            local goal, size = getBoundingBox(self.current, useR15);
+            local _, size     = getBoundingBox(current.humanoid, true);
+            local goal        = current.rebuiltPos or current.rootPart.Position;
 
-            local vector2, onscreen = worldToViewPoint(goal.Position);
+            local vector2, onscreen = worldToViewPoint(goal);
             if (not onscreen) then
                   return self:hideDrawings();
             end;
             self.hidden = false;
 
-            local cframe = CFrame.new(goal.Position, currentCamera.CFrame.Position);
+            local cframe      = CFrame.new(goal, currentCamera.CFrame.Position);
 
-            -- EXACT FIT: Use full bounding box dimensions without padding
-            local x, y = size.X / 2, size.Y / 2;
+            local x, y = -size.X / 2, size.Y / 2;
             local topright    = worldToViewPoint((cframe * CFrame.new(x, y, 0)).Position)
             local bottomright = worldToViewPoint((cframe * CFrame.new(x, -y, 0)).Position)
 
             local offset = Vector2.new(
-                  math.max(topright.X - vector2.X, bottomright.X - vector2.X),
+                  (topright.X - vector2.X),
                   math.max((vector2.Y - topright.Y), (bottomright.Y - vector2.Y))
             );
 
@@ -254,18 +291,82 @@ do
             self:renderName(vector2, offset, settings.name);
             self:renderDistance(vector2, offset, settings.distance, distance);
             self:renderHealthbar(vector2, offset, settings.healthbar);
+            self:renderWeapon(vector2, offset, settings.weapon);
       end;
-      function playerESP:setupHumanoid(humanoid: Humanoid)
+      function playerESP:primaryPartAdded()
+            local primaryPart = self.current.character.PrimaryPart;
 
-            self:humanoidHealthChanged();
+            if (primaryPart) then
+                  self.current.rootPart = primaryPart;
+                  if (self.current.humanoid and self.current.health > 0) then
+                        self.current.active = true;
+                  end;
+            end;
+      end;
+      function playerESP:childAdded(child: Instance)
 
-            table.insert(self.connections, humanoid:GetPropertyChangedSignal('Health'):Connect(function()
-                  self:humanoidHealthChanged();
+            if (child.ClassName == 'Humanoid') then
+                  self.current.humanoid = child;
+                  self:setupHumanoid(child);
+            end;
+
+
+            for i = 1, #self.childAddedConnections do
+                  self.childAddedConnections[i](self, child);
+            end;
+      end;
+      function playerESP:childRemoved(child)
+            if (child == self.current.humanoid) then
+                  self.current.humanoid = nil;
+                  self:setNonActive();
+            elseif (child == self.current.rootPart) then
+                  self.current.rootPart = nil;
+                  self:setNonActive();
+            end;
+
+            for i = 1, #self.childRemovedConnections do
+                  self.childRemovedConnections[i](self, child);
+            end;
+      end;
+      function playerESP:characterAdded(character: Model, firstTime)
+            self.current = {
+                  character   = character;
+                  active      = false;
+
+                  humanoid    = character:FindFirstChild('Humanoid');
+                  rootPart    = character:FindFirstChild('HumanoidRootPart');
+
+
+                  health      = nil;
+                  weapon      = nil;
+                  connection  = nil;
+            };
+
+
+            table.insert(self.connections, character:GetPropertyChangedSignal('PrimaryPart'):Connect(function()
+                  self:primaryPartAdded();
             end));
+            table.insert(self.connections, character.ChildAdded:Connect(function(...)
+                  return self:childAdded(...);
+            end));
+            table.insert(self.connections, character.ChildRemoved:Connect(function(...)
+                  return self:childRemoved(...);
+            end));
+
+            if (self.current.humanoid) then
+                  self:setupHumanoid(self.current.humanoid, firstTime);
+            end;
+
+      end;
+      function playerESP:characterRemoved(character)
+            self.current = nil;
+
+            for i = 1, #self.allDrawings do
+                  self.allDrawings[i].Visible = false;
+            end;
       end;
 
-
-      -- render functions
+      --render functions
       function playerESP:renderBox(vector2, offset, enabled)
             local drawings = self.drawings;
 
@@ -308,11 +409,24 @@ do
                   return;
             end;
 
-            local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.current:FindFirstChild("HumanoidRootPart") and self.current:FindFirstChild("HumanoidRootPart").Position or self.current:GetPivot().Position).Magnitude );
+            local Yoffset     = self.drawings.weapon.Visible and 13 or 0;
+            local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.current.rootPart.Position).Magnitude );
             
             distance.Visible  = true;
-            distance.Position = vector2 + Vector2.new(0, offset.Y);
+            distance.Position = vector2 + Vector2.new(0, offset.Y + Yoffset);
             distance.Text     = `[{magnitude}]`;
+      end;
+      function playerESP:renderWeapon(vector2, offset, enabled)
+            local weapon = self.drawings.weapon;
+
+            if (not enabled) then
+                  weapon.Visible          = false;
+                  return;
+            end;
+
+            weapon.Visible  = true;
+            weapon.Position = vector2 + Vector2.new(0, offset.Y);
+            weapon.Text     = self.current.weapon and string.lower(self.current.weapon.Name) or 'none';
       end;
       function playerESP:renderHealthbar(vector2, offset, enabled)
             if (not enabled) then
@@ -330,7 +444,7 @@ do
             local basePosition = vector2 - offset - Vector2.new(5, 0);
             local baseSize = Vector2.new(3, offset.Y * 2);
 
-            local healthLength = (baseSize.Y - 2) * self.healthPercentage;
+            local healthLength = (baseSize.Y - 2) * self.current.healthPercentage;
             local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
             local healthSize = Vector2.new(1, healthLength);
 
@@ -344,50 +458,317 @@ do
       espLibrary.playerESP = playerESP;
 end;
 
+-- entityESP
+do
+      local entityESP = {
+            entityCache = {};
+            drawingCache = {};
+            allDrawingCache = {};
+
+            childAddedConnections = {};
+            childRemovedConnections = {};
+
+            drawingAddedConnections = {};
+      };
+      entityESP.__index = entityESP;
+
+      -- preload
+      entityESP.onDrawingAdded = function(_func)
+            table.insert(entityESP.drawingAddedConnections, _func);
+      end;
+
+
+      entityESP.new = function(entity: Model, settingName:string, name: string?, colour: Color3?)
+            local self = setmetatable({
+                  entity      = entity;
+                  settingName = settingName;
+                  
+                  name        = name or entity.Name;
+                  colour      = colour or Color3.new(1, 1, 1);
+                  hidden      = false;
+
+                  connections = {};
+            }, entityESP);
+
+            local cache = entityESP.drawingCache[1];
+            if (cache) then
+                  table.remove(entityESP.drawingCache, 1);
+                  
+                  cache.name.Text         = self.name;
+
+                  cache.name.Color        = self.colour;
+                  cache.box.Color         = self.colour;
+                  cache.distance.Color    = self.colour;
+
+                  self.allDrawings        = cache.all;
+                  self.drawings           = cache;
+            else
+                  self:createDrawingCache();
+            end;
+
+            for i = 1, #entityESP.drawingAddedConnections do
+                  entityESP.drawingAddedConnections[i](self);
+            end;
+            
+            table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
+                  if (child == entity and parent == nil) then
+                        return self:remove();
+                  end;
+            end));
+
+            entityESP.entityCache[entity] = self;
+      end;
+      function entityESP:remove()
+            entityESP.entityCache[self.entity] = nil;
+            
+            self:hideDrawings();
+            
+            table.insert(entityESP.drawingCache, self.drawings);
+
+            for i = 1, #self.connections do
+                  self.connections[i]:Disconnect();
+            end;
+      end;
+      function entityESP:createDrawingCache()
+            local allDrawings = {};
+
+            local drawings = {
+                  box = createDrawing('Square', {
+                        Visible           = false;
+                        Filled            = false;
+                        Thickness         = 1;
+                        Color             = self.colour;
+                        ZIndex            = BASE_ZINDEX + 1;
+                  }, allDrawings);
+                  boxOutline = createDrawing('Square', {
+                        Visible           = false;
+                        Filled            = false;
+                        Thickness         = 1;
+                        Color             = Color3.new(0, 0, 0);
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings);
+
+                  name = createDrawing('Text', {
+                        Visible           = false;
+                        Center            = true;
+                        Outline           = true;
+                        OutlineColor      = Color3.new(0, 0, 0);
+                        Color             = self.colour;
+                        Transparency      = 1;
+                        Size              = GLOBAL_SIZE;
+                        Text              = self.name;
+                        Font              = GLOBAL_FONT;
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings);
+                  distance = createDrawing('Text', {
+                        Visible           = false;
+                        Center            = true;
+                        Outline           = true;
+                        OutlineColor      = Color3.new(0, 0, 0);
+                        Color             = self.colour;
+                        Transparency      = 1;
+                        Size              = GLOBAL_SIZE;
+                        Font              = GLOBAL_FONT;
+                        ZIndex            = BASE_ZINDEX;
+                  }, allDrawings);
+            };
+            drawings.all = allDrawings;
+
+            self.drawings = drawings;
+            self.allDrawings = allDrawings;
+
+            table.insert(self.drawings, self.allDrawingCache);
+      end;
+      function entityESP:hideDrawings()
+            if (self.hidden) then
+                  return;
+            end;
+            
+            self.hidden = true;
+            for i = 1, #self.allDrawings do
+                  self.allDrawings[i].Visible = false;
+            end;
+      end;
+      function entityESP:loop(settings, distance)
+            local goal, size = getBoundingBox(self.entity);
+
+            local vector2, onscreen = worldToViewPoint(goal.Position);
+            if (not onscreen) then
+                  return self:hideDrawings();
+            end;
+            self.hidden = false;
+
+            local cframe = CFrame.new(goal.Position, currentCamera.CFrame.Position);
+
+            local x, y = -size.X / 2, size.Y / 2;
+            local topright    = worldToViewPoint((cframe * CFrame.new(x, y, 0)).Position)
+            local bottomright = worldToViewPoint((cframe * CFrame.new(x, -y, 0)).Position)
+
+            local offset = Vector2.new(
+                  math.max(topright.X - vector2.X, bottomright.X - vector2.X),
+                  math.max((vector2.Y - topright.Y), (bottomright.Y - vector2.Y))
+            );
+
+            self:renderBox(vector2, offset, settings.box);
+            self:renderName(vector2, offset, settings.name);
+            self:renderDistance(vector2, offset, settings.distance, distance);
+      end;
+      
+      -- render functions
+      function entityESP:renderBox(vector2, offset, enabled)
+            local drawings = self.drawings;
+
+            if (not enabled) then
+                  drawings.box.Visible          = false;
+                  drawings.boxOutline.Visible   = false;
+                  return;
+            end;
+
+            local fill        = drawings.box;
+            local outline     = drawings.boxOutline;
+
+            local position    = vector2 - offset;
+            local size        = offset * 2;
+            
+            fill.Visible      = true;
+            fill.Position     = position;
+            fill.Size         = size;
+
+            outline.Visible   = true;
+            outline.Position  = position;
+            outline.Size      = size;
+      end;
+      function entityESP:renderName(vector2, offset, enabled)
+            local name = self.drawings.name;
+
+            if (not enabled) then
+                  name.Visible          = false;
+                  return;
+            end;
+            
+            name.Visible      = true;
+            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size);
+      end;
+      function entityESP:renderDistance(vector2, offset, enabled, _distance)
+            local distance = self.drawings.distance;
+
+            if (not enabled) then
+                  distance.Visible          = false;
+                  return;
+            end;
+
+            local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.entity:GetPivot().Position).Magnitude );
+            
+            distance.Visible  = true;
+            distance.Position = vector2 + Vector2.new(0, offset.Y);
+            distance.Text     = `[{magnitude}]`;
+      end;
+
+      espLibrary.entityESP = entityESP;
+end;
 
 -- npcESP
 do
       local npcESP = {
             npcCache = {};
+            drawingCache = {};
+            allDrawingCache = {};
+
+            drawingAddedConnections = {};
       };
       npcESP.__index = npcESP;
 
-      npcESP.new = function(entity: Model, colour: Color3?, name: string?)
+      -- preload
+      npcESP.onDrawingAdded = function(_func)
+            table.insert(npcESP.drawingAddedConnections, _func);
+      end;
+
+      npcESP.new = function(entity: Model, settingName:string, name: string?, colour: Color3?, ignoreR15)
             local self = setmetatable({
                   entity      = entity;
-                  colour      = colour or Color3.new(1, 1, 1);
-                  name        = name or entity.Name;
-                  humanoid    = entity:FindFirstChild('Humanoid');
-                  connections = {};
-                  hidden      = false;
+                  settingName = settingName;
                   
-                  health             = 0;
-                  maxHealth          = 0;
-                  healthPercentage   = 0;
+                  name        = name or entity.Name;
+                  colour      = colour or Color3.new(1, 1, 1);
+                  hidden      = false;
+                  ignoreR15   = ignoreR15 or false;
+
+                  connections = {};
             }, npcESP);
 
-            self:createDrawingCache();
+            local cache = npcESP.drawingCache[1];
+            if (cache) then
+                  table.remove(npcESP.drawingCache, 1);
+                  
+                  cache.name.Text         = self.name;
 
-            table.insert(self.connections, entity.Destroying:Connect(function()
-                  return self:destroy();
-            end));
+                  cache.name.Color        = self.colour;
+                  cache.box.Color         = self.colour;
+                  cache.distance.Color    = self.colour;
 
-            if (self.humanoid) then
-                  self:setupHumanoid(self.humanoid);
+                  self.allDrawings        = cache.all;
+                  self.drawings           = cache;
+            else
+                  self:createDrawingCache();
             end;
 
-            return self;
+            for i = 1, #npcESP.drawingAddedConnections do
+                  npcESP.drawingAddedConnections[i](self);
+            end;
+
+            local humanoid = entity:FindFirstChildOfClass('Humanoid');
+            if (humanoid and humanoid.Health > 0) then
+                  
+                  self.humanoid = humanoid;
+                  table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
+                        if (child == entity and parent == nil) then
+                              return self:remove();
+                        end;
+                  end));
+                  table.insert(self.connections, humanoid:GetPropertyChangedSignal('Health'):Connect(function()
+                        if (humanoid.Health <= 0) then
+                              return self:remove();
+                        end;
+                  end));
+
+                  npcESP.npcCache[entity] = self;
+                  self:setupHumanoid(humanoid);
+                  return;
+            end;
+
+
+            local childAdded_connection;
+            childAdded_connection = entity.ChildAdded:Connect(function(child)
+                  if (child.ClassName ~= 'Humanoid') then
+                        return;
+                  end;
+
+
+                  self.humanoid = child;
+                  table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
+                        if (child == entity and parent == nil) then
+                              return self:remove();
+                        end;
+                  end));
+
+                  npcESP.npcCache[entity] = self;
+                  self:setupHumanoid(child);
+
+
+                  childAdded_connection:Disconnect();
+            end);
       end;
-      npcESP.destroy = function(self)
+      function npcESP:remove()
+            npcESP.npcCache[self.entity] = nil;
+            
+            self:hideDrawings();
+            
+            table.insert(npcESP.drawingCache, self.drawings);
+
             for i = 1, #self.connections do
                   self.connections[i]:Disconnect();
             end;
-
-            for i = 1, #self.allDrawings do
-                  self.allDrawings[i]:Remove();
-            end;
       end;
-
       function npcESP:createDrawingCache()
             local allDrawings = {};
 
@@ -397,6 +778,7 @@ do
                         Filled            = false;
                         Thickness         = 1;
                         Color             = self.colour;
+                        CornerRadius      = 3;
                         ZIndex            = BASE_ZINDEX + 1;
                   }, allDrawings);
                   boxOutline = createDrawing('Square', {
@@ -476,13 +858,12 @@ do
 
             local cframe = CFrame.new(goal.Position, currentCamera.CFrame.Position);
 
-            -- EXACT FIT: Use full bounding box dimensions without padding
-            local x, y = size.X / 2, size.Y / 2;
+            local x, y = -size.X / 2, size.Y / 2;
             local topright    = worldToViewPoint((cframe * CFrame.new(x, y, 0)).Position)
             local bottomright = worldToViewPoint((cframe * CFrame.new(x, -y, 0)).Position)
 
             local offset = Vector2.new(
-                  math.max(topright.X - vector2.X, bottomright.X - vector2.X),
+                  (topright.X - vector2.X),
                   math.max((vector2.Y - topright.Y), (bottomright.Y - vector2.Y))
             );
 
@@ -504,8 +885,7 @@ do
             self.maxHealth          = maxHealth;
             self.healthPercentage   = healthPercentage;
 
-            -- GREEN to RED gradient (green at 100%, red at 0%)
-            self.drawings.healthBar.Color = Color3.new(0, 1, 0):Lerp(Color3.new(1, 0, 0), 1 - healthPercentage);
+            self.drawings.healthBar.Color = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), healthPercentage);
       end;
       function npcESP:setupHumanoid(humanoid: Humanoid)
 
