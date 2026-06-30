@@ -4,308 +4,36 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local Camera = Workspace.CurrentCamera
-local CoreGui = (gethui and gethui()) or game:GetService("CoreGui")
 
-local customFont = nil
-local function loadCustomFont()
-    local fontFile = "tiny.ttf"
-    local fontMeta = "tiny.font"
-    local fontUrl = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/proggy-tiny.ttf"
-    local ok, result = pcall(function()
-        if not isfile(fontFile) then
-            writefile(fontFile, game:HttpGet(fontUrl))
-        end
-        local data = {
-            name = "tiny",
-            faces = {
-                { name = "tiny", weight = 400, style = "Regular", assetId = getcustomasset(fontFile) },
-            },
-        }
-        writefile(fontMeta, game:GetService("HttpService"):JSONEncode(data))
-        return Font.new(getcustomasset(fontMeta))
-    end)
-    if ok then customFont = result end
-end
-loadCustomFont()
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "InsulinESP"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.Parent = CoreGui
-
-local Overlay = Instance.new("Frame")
-Overlay.Size = UDim2.new(1, 0, 1, 0)
-Overlay.BackgroundTransparency = 1
-Overlay.BorderSizePixel = 0
-Overlay.Parent = ScreenGui
-
-local function makeStyleFrame(parent, color, zIndex)
-    local f = Instance.new("Frame")
-    f.BackgroundColor3 = color
-    f.BorderSizePixel = 0
-    f.ZIndex = zIndex
-    f.Visible = false
-    f.Parent = parent
-    return f
-end
-
-local function make2DBox(parent, color, outlineColor, thickness)
-    local oThick = thickness + 2
-    local lines, shadows = {}, {}
-
-    local topS = makeStyleFrame(parent, outlineColor, 2)
-    topS.AnchorPoint = Vector2.new(0, 0)
-    topS.Size = UDim2.new(1, 0, 0, oThick)
-    topS.Position = UDim2.new(0, 0, 0, -1)
-    local topL = makeStyleFrame(parent, color, 3)
-    topL.AnchorPoint = Vector2.new(0, 0)
-    topL.Size = UDim2.new(1, 0, 0, thickness)
-    topL.Position = UDim2.new(0, 0, 0, 0)
-
-    local botS = makeStyleFrame(parent, outlineColor, 2)
-    botS.AnchorPoint = Vector2.new(0, 1)
-    botS.Size = UDim2.new(1, 0, 0, oThick)
-    botS.Position = UDim2.new(0, 0, 1, 1)
-    local botL = makeStyleFrame(parent, color, 3)
-    botL.AnchorPoint = Vector2.new(0, 1)
-    botL.Size = UDim2.new(1, 0, 0, thickness)
-    botL.Position = UDim2.new(0, 0, 1, 0)
-
-    local leftS = makeStyleFrame(parent, outlineColor, 2)
-    leftS.AnchorPoint = Vector2.new(0, 0)
-    leftS.Size = UDim2.new(0, oThick, 1, 0)
-    leftS.Position = UDim2.new(0, -1, 0, 0)
-    local leftL = makeStyleFrame(parent, color, 3)
-    leftL.AnchorPoint = Vector2.new(0, 0)
-    leftL.Size = UDim2.new(0, thickness, 1, 0)
-    leftL.Position = UDim2.new(0, 0, 0, 0)
-
-    local rightS = makeStyleFrame(parent, outlineColor, 2)
-    rightS.AnchorPoint = Vector2.new(1, 0)
-    rightS.Size = UDim2.new(0, oThick, 1, 0)
-    rightS.Position = UDim2.new(1, 1, 0, 0)
-    local rightL = makeStyleFrame(parent, color, 3)
-    rightL.AnchorPoint = Vector2.new(1, 0)
-    rightL.Size = UDim2.new(0, thickness, 1, 0)
-    rightL.Position = UDim2.new(1, 0, 0, 0)
-
-    lines = {topL, botL, leftL, rightL}
-    shadows = {topS, botS, leftS, rightS}
-    return {lines = lines, shadows = shadows}
-end
-
-local function makeCornerBox(parent, color, outlineColor, thickness, lenScale)
-    local oThick = thickness + 2
-    local sizeH = UDim2.new(lenScale, 0, 0, thickness)
-    local sizeV = UDim2.new(0, thickness, lenScale, 0)
-    local sizeHO = UDim2.new(lenScale, 0, 0, oThick)
-    local sizeVO = UDim2.new(0, oThick, lenScale, 0)
-
-    local lines, shadows = {}, {}
-
-    local function corner(ax, ay, px, py)
-        local hOffY = ay == 0 and -1 or 1
-        local vOffX = ax == 0 and -1 or 1
-
-        local sH = makeStyleFrame(parent, outlineColor, 2)
-        sH.AnchorPoint = Vector2.new(ax, ay)
-        sH.Position = UDim2.new(px, 0, py, hOffY)
-        sH.Size = sizeHO
-        local lH = makeStyleFrame(parent, color, 3)
-        lH.AnchorPoint = Vector2.new(ax, ay)
-        lH.Position = UDim2.new(px, 0, py, 0)
-        lH.Size = sizeH
-
-        local sV = makeStyleFrame(parent, outlineColor, 2)
-        sV.AnchorPoint = Vector2.new(ax, ay)
-        sV.Position = UDim2.new(px, vOffX, py, 0)
-        sV.Size = sizeVO
-        local lV = makeStyleFrame(parent, color, 3)
-        lV.AnchorPoint = Vector2.new(ax, ay)
-        lV.Position = UDim2.new(px, 0, py, 0)
-        lV.Size = sizeV
-
-        lines[#lines + 1] = lH
-        lines[#lines + 1] = lV
-        shadows[#shadows + 1] = sH
-        shadows[#shadows + 1] = sV
-    end
-
-    corner(0, 0, 0, 0)
-    corner(1, 0, 1, 0)
-    corner(0, 1, 0, 1)
-    corner(1, 1, 1, 1)
-
-    return {lines = lines, shadows = shadows}
-end
-
-local function applyBoxStyle(boxObj, styleName, alpha, color, withOutline, thickness, outlineColor)
-    for sn, style in pairs(boxObj) do
-        if sn ~= styleName then
-            for _, l in ipairs(style.lines) do l.Visible = false end
-            for _, s in ipairs(style.shadows) do s.Visible = false end
+local Drawing = (syn and syn.drawing) or (getrenv and getrenv().Drawing) or Drawing
+local createDrawing = function(drawType, props)
+    local obj = Drawing.new(drawType)
+    if props then
+        for k, v in pairs(props) do
+            obj[k] = v
         end
     end
-    local active = boxObj[styleName] or boxObj["2D"]
-    local isCorner = styleName == "Corner"
-    local lenScale = 0.22
-    local oThick = thickness + 2
-    outlineColor = outlineColor or Color3.fromRGB(0,0,0)
-
-    for i, l in ipairs(active.lines) do
-        l.BackgroundColor3 = color
-        l.BackgroundTransparency = alpha
-        l.Visible = true
-        if isCorner then
-            if i % 2 == 1 then
-                l.Size = UDim2.new(lenScale, 0, 0, thickness)
-            else
-                l.Size = UDim2.new(0, thickness, lenScale, 0)
-            end
-        end
-    end
-    for i, s in ipairs(active.shadows) do
-        if withOutline then
-            s.BackgroundColor3 = outlineColor
-            s.BackgroundTransparency = alpha
-            s.Visible = true
-            if isCorner then
-                if i % 2 == 1 then
-                    s.Size = UDim2.new(lenScale, 0, 0, oThick)
-                else
-                    s.Size = UDim2.new(0, oThick, lenScale, 0)
-                end
-            end
-        else
-            s.Visible = false
-        end
-    end
+    return obj
 end
 
-local function makeTextLabel(parent, textSize, anchorX, anchorY, posX, posY, alignment, customFont)
-    local lbl = Instance.new("TextLabel")
-    lbl.AnchorPoint = Vector2.new(anchorX, anchorY)
-    lbl.BackgroundTransparency = 1
-    lbl.Size = UDim2.new(1, 60, 0, textSize + 2)
-    lbl.Position = UDim2.new(posX, 0, posY, 0)
-    lbl.TextSize = textSize
-    if customFont then
-        lbl.FontFace = customFont
-    else
-        lbl.Font = Enum.Font.GothamMedium
-    end
-    lbl.TextColor3 = Color3.new(1,1,1)
-    lbl.TextStrokeColor3 = Color3.new(0,0,0)
-    lbl.TextStrokeTransparency = 0
-    lbl.TextXAlignment = alignment or Enum.TextXAlignment.Center
-    lbl.ZIndex = 5
-    lbl.Visible = false
-    lbl.Parent = parent
-    return lbl
+local GLOBAL_FONT = "UI"
+local GLOBAL_SIZE = 10
+
+local function getScreenOffset(centerPos, size)
+    local look = CFrame.new(centerPos, Camera.CFrame.Position)
+    local halfW = size.X / 2
+    local halfH = size.Y / 2
+    local topRight, _ = Camera:WorldToViewportPoint((look * CFrame.new(halfW, halfH, 0)).Position)
+    local bottomRight, _ = Camera:WorldToViewportPoint((look * CFrame.new(halfW, -halfH, 0)).Position)
+    local vec2, onscreen = Camera:WorldToViewportPoint(centerPos)
+    if not onscreen then return nil end
+    local offsetX = math.max(topRight.X - vec2.X, bottomRight.X - vec2.X)
+    local offsetY = math.max((vec2.Y - topRight.Y), (bottomRight.Y - vec2.Y))
+    return Vector2.new(vec2.X, vec2.Y), Vector2.new(offsetX, offsetY)
 end
 
-local function createHealthBar(parent, defaultColor)
-    local hBg = Instance.new("Frame")
-    hBg.BackgroundColor3 = Color3.fromRGB(15,15,15)
-    hBg.BorderSizePixel = 0
-    hBg.ZIndex = 4
-    hBg.Visible = false
-    hBg.ClipsDescendants = true
-    hBg.Parent = Overlay
-    Instance.new("UICorner", hBg).CornerRadius = UDim.new(1,0)
-    local hOutline = Instance.new("UIStroke", hBg)
-    hOutline.Color = Color3.new(0,0,0)
-    hOutline.Thickness = 1
-    hOutline.Transparency = 0
-
-    local hFill = Instance.new("Frame")
-    hFill.AnchorPoint = Vector2.new(0,1)
-    hFill.BackgroundColor3 = defaultColor
-    hFill.BorderSizePixel = 0
-    hFill.Size = UDim2.new(1,0,1,0)
-    hFill.Position = UDim2.new(0,0,1,0)
-    hFill.ZIndex = 5
-    hFill.Parent = hBg
-    Instance.new("UICorner", hFill).CornerRadius = UDim.new(1,0)
-    local hGrad = Instance.new("UIGradient", hFill)
-    hGrad.Rotation = 0
-    hGrad.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.1),
-        NumberSequenceKeypoint.new(0.5, 0),
-        NumberSequenceKeypoint.new(1, 0.2),
-    })
-
-    local gradBg = Instance.new("Frame")
-    gradBg.BackgroundColor3 = Color3.new(1,1,1)
-    gradBg.BorderSizePixel = 0
-    gradBg.ZIndex = 4
-    gradBg.Visible = false
-    gradBg.ClipsDescendants = true
-    gradBg.Parent = Overlay
-    Instance.new("UICorner", gradBg).CornerRadius = UDim.new(1,0)
-    local gradGrad = Instance.new("UIGradient", gradBg)
-    gradGrad.Rotation = 90
-    gradGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(80,230,100)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,200,60)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(230,60,60)),
-    })
-    local gradMask = Instance.new("Frame")
-    gradMask.BackgroundColor3 = Color3.new(0,0,0)
-    gradMask.BorderSizePixel = 0
-    gradMask.AnchorPoint = Vector2.new(0,0)
-    gradMask.Position = UDim2.new(0,0,0,0)
-    gradMask.Size = UDim2.new(1,0,0,0)
-    gradMask.ZIndex = 5
-    gradMask.Parent = gradBg
-
-    local hpText = Instance.new("TextLabel")
-    hpText.AnchorPoint = Vector2.new(1, 0.5)
-    hpText.BackgroundTransparency = 1
-    hpText.Size = UDim2.new(0, 32, 0, 8 + 2)
-    hpText.TextSize = 8
-    if customFont then
-        hpText.FontFace = customFont
-    else
-        hpText.Font = Enum.Font.GothamBold
-    end
-    hpText.TextColor3 = Color3.new(1,1,1)
-    hpText.TextStrokeColor3 = Color3.new(0,0,0)
-    hpText.TextStrokeTransparency = 0
-    hpText.TextXAlignment = Enum.TextXAlignment.Right
-    hpText.ZIndex = 6
-    hpText.Visible = false
-    hpText.Parent = Overlay
-
-    return {
-        hBg = hBg,
-        hFill = hFill,
-        hGrad = hGrad,
-        gradBg = gradBg,
-        gradMask = gradMask,
-        hpText = hpText,
-    }
-end
-
-local function getBoundingBox(character, isPlayer)
-    if isPlayer then
-
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if not hrp then return nil end
-        local pos = hrp.Position
-        local w = 4.5
-        local h = 6.2
-
-        return CFrame.new(pos), Vector3.new(w, h, w)
-    else
-        return character:GetBoundingBox()
-    end
-end
-
-local function worldToViewport(pos)
-    local sp, on = Camera:WorldToViewportPoint(pos)
-    return Vector2.new(sp.X, sp.Y), on, sp.Z
+local function getHealthColor(pct)
+    return Color3.new(1,0,0):Lerp(Color3.new(0,1,0), pct)
 end
 
 local playerESP = {
@@ -365,54 +93,94 @@ function playerESP.remove(player)
 end
 
 function playerESP:createWidget()
-    local container = Instance.new("Frame")
-    container.BackgroundTransparency = 1
-    container.BorderSizePixel = 0
-    container.ZIndex = 2
-    container.Visible = false
-    container.Parent = Overlay
 
-    local box2D = make2DBox(container, Color3.new(1,1,1), Color3.new(0,0,0), 1)
-    local boxCorner = makeCornerBox(container, Color3.new(1,1,1), Color3.new(0,0,0), 1, 0.22)
-    local boxObj = { ["2D"] = box2D, Corner = boxCorner }
+    local box = createDrawing("Square", {
+        Visible = false,
+        Filled = false,
+        Thickness = 1,
+        Color = Color3.new(1,1,1),
+        ZIndex = 2,
+    })
+    local boxOutline = createDrawing("Square", {
+        Visible = false,
+        Filled = false,
+        Thickness = 3,
+        Color = Color3.new(0,0,0),
+        ZIndex = 1,
+    })
 
-    local health = createHealthBar(container, Color3.fromRGB(80,230,100))
+    local healthBg = createDrawing("Square", {
+        Visible = false,
+        Filled = true,
+        Color = Color3.fromRGB(15,15,15),
+        Transparency = 0.7,
+        ZIndex = 1,
+    })
+    local healthFill = createDrawing("Square", {
+        Visible = false,
+        Filled = true,
+        Color = Color3.fromRGB(80,230,100),
+        ZIndex = 2,
+    })
+    local healthText = createDrawing("Text", {
+        Visible = false,
+        Center = false,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = Color3.new(1,1,1),
+        Size = 8,
+        Font = GLOBAL_FONT,
+        ZIndex = 3,
+        Text = "",
+    })
 
-    local nameLbl = makeTextLabel(container, 10, 0.5, 1, 0.5, 0, Enum.TextXAlignment.Center)
-    nameLbl.Position = UDim2.new(0.5, 0, 0, -2)
+    local name = createDrawing("Text", {
+        Visible = false,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = Color3.new(1,1,1),
+        Size = GLOBAL_SIZE,
+        Font = GLOBAL_FONT,
+        ZIndex = 2,
+        Text = self.player.DisplayName,
+    })
 
-    local weaponLbl = makeTextLabel(container, 9, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
-    weaponLbl.Position = UDim2.new(0.5, 0, 1, 2)
+    local weapon = createDrawing("Text", {
+        Visible = false,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = Color3.new(1,1,1),
+        Size = GLOBAL_SIZE - 1,
+        Font = GLOBAL_FONT,
+        ZIndex = 2,
+        Text = "None",
+    })
 
-    local distLbl = makeTextLabel(container, 8, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
-    distLbl.Position = UDim2.new(0.5, 0, 1, 2)
-
-    local sideFlags = {}
-    for i = 1, 8 do
-        local lbl = makeTextLabel(Overlay, 9, 0, 0, 0, 0, Enum.TextXAlignment.Left)
-        lbl.Size = UDim2.new(0, 100, 0, 11)
-        lbl.Visible = false
-        sideFlags[i] = lbl
-    end
+    local distance = createDrawing("Text", {
+        Visible = false,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = Color3.new(1,1,1),
+        Size = GLOBAL_SIZE - 2,
+        Font = GLOBAL_FONT,
+        ZIndex = 2,
+        Text = "",
+    })
 
     local drawings = {
-        container = container,
-        box = boxObj,
-        health = health,
-        name = nameLbl,
-        weapon = weaponLbl,
-        distance = distLbl,
-        sideFlags = sideFlags,
-        all = { container, health.hBg, health.gradBg, health.hpText, nameLbl, weaponLbl, distLbl },
-
+        box = box,
+        boxOutline = boxOutline,
+        healthBg = healthBg,
+        healthFill = healthFill,
+        healthText = healthText,
+        name = name,
+        weapon = weapon,
+        distance = distance,
+        all = { box, boxOutline, healthBg, healthFill, healthText, name, weapon, distance },
     }
-
-    for _, style in pairs(boxObj) do
-        for _, l in ipairs(style.lines) do table.insert(drawings.all, l) end
-        for _, s in ipairs(style.shadows) do table.insert(drawings.all, s) end
-    end
-    for _, lbl in ipairs(sideFlags) do table.insert(drawings.all, lbl) end
-
     self.drawings = drawings
     self.allDrawings = drawings.all
 end
@@ -488,15 +256,10 @@ function playerESP:setupHumanoid(humanoid, firstTime)
         self.current.health = health
         self.current.maxHealth = maxHealth
         self.current.healthPercentage = pct
-
-        local color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), pct)
-        self.drawings.health.hFill.BackgroundColor3 = color
-        self.drawings.health.hGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.new(math.min(1, color.R+0.25), math.min(1, color.G+0.25), math.min(1, color.B+0.25))),
-            ColorSequenceKeypoint.new(1, color),
-        })
-        self.drawings.health.hpText.TextColor3 = color
-        self.drawings.health.hpText.Text = tostring(math.floor(health))
+        local color = getHealthColor(pct)
+        self.drawings.healthFill.Color = color
+        self.drawings.healthText.Color = color
+        self.drawings.healthText.Text = tostring(math.floor(health))
     end
     updateHealth()
     table.insert(self.connections, humanoid:GetPropertyChangedSignal("Health"):Connect(updateHealth))
@@ -514,99 +277,75 @@ function playerESP:loop(settings, distance)
         return
     end
 
-    local cframe, size = getBoundingBox(current.humanoid, true)
-    if not cframe then
+    local hrp = current.rootPart
+    local centerPos = hrp.Position
+    local size = Vector3.new(4.5, 6.2, 4.5)
+
+    local vec2, offset = getScreenOffset(centerPos, size)
+    if not vec2 then
         self:hideDrawings()
         return
     end
 
-    local centerPos = cframe.Position
-    local vec2, onscreen = worldToViewport(centerPos)
-    if not onscreen then
-        self:hideDrawings()
-        return
-    end
+    local box = self.drawings.box
+    local outline = self.drawings.boxOutline
+    if settings.box then
+        box.Visible = true
+        box.Position = vec2 - offset
+        box.Size = offset * 2
+        box.Color = Color3.new(1,1,1)
 
-    local look = CFrame.new(centerPos, Camera.CFrame.Position)
-    local halfW = size.X / 2
-    local halfH = size.Y / 2
-    local topRight = worldToViewport((look * CFrame.new(halfW, halfH, 0)).Position)
-    local bottomRight = worldToViewport((look * CFrame.new(halfW, -halfH, 0)).Position)
-    local offsetX = math.max(topRight.X - vec2.X, bottomRight.X - vec2.X)
-    local offsetY = math.max((vec2.Y - topRight.Y), (bottomRight.Y - vec2.Y))
-    local offset = Vector2.new(offsetX, offsetY)
-
-    local alpha = 0
-
-    local container = self.drawings.container
-    container.Visible = true
-    container.Position = UDim2.new(0, vec2.X - offset.X, 0, vec2.Y - offset.Y)
-    container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
-
-    local boxEnabled = settings.box
-    if boxEnabled then
-        applyBoxStyle(self.drawings.box, "2D", alpha, Color3.new(1,1,1), true, 1, Color3.new(0,0,0))
+        outline.Visible = true
+        outline.Position = vec2 - offset - Vector2.new(1,1)
+        outline.Size = offset * 2 + Vector2.new(2,2)
+        outline.Color = Color3.new(0,0,0)
     else
-        for _, style in pairs(self.drawings.box) do
-            for _, l in ipairs(style.lines) do l.Visible = false end
-            for _, s in ipairs(style.shadows) do s.Visible = false end
-        end
+        box.Visible = false
+        outline.Visible = false
     end
 
-    local hpSettings = settings.healthbar
-    if hpSettings then
+    if settings.healthbar then
         local pct = current.healthPercentage
         local barW = 2
         local barX = vec2.X - offset.X - barW - 3
         local barY = vec2.Y - offset.Y
         local barH = offset.Y * 2
 
-        local style = "Solid"
-        local health = self.drawings.health
-        if style == "Gradient" then
-            health.hBg.Visible = false
-            health.gradBg.Visible = true
-            health.gradMask.Visible = true
-            health.gradBg.Position = UDim2.new(0, barX, 0, barY)
-            health.gradBg.Size = UDim2.new(0, barW, 0, barH)
-            health.gradBg.BackgroundTransparency = alpha
-            health.gradMask.Size = UDim2.new(1, 0, 1 - pct, 0)
-            health.gradMask.BackgroundTransparency = alpha
-        else
-            health.gradBg.Visible = false
-            health.gradMask.Visible = false
-            health.hBg.Visible = true
-            health.hBg.Position = UDim2.new(0, barX, 0, barY)
-            health.hBg.Size = UDim2.new(0, barW, 0, barH)
-            health.hBg.BackgroundTransparency = alpha > 0 and 0.6 or 0
-            health.hFill.Size = UDim2.new(1, 0, pct, 0)
-            health.hFill.BackgroundTransparency = alpha
-        end
+        local bg = self.drawings.healthBg
+        bg.Visible = true
+        bg.Position = Vector2.new(barX, barY)
+        bg.Size = Vector2.new(barW, barH)
+        bg.Transparency = 0.7
+
+        local fill = self.drawings.healthFill
+        fill.Visible = true
+        fill.Position = Vector2.new(barX, barY + barH * (1 - pct))
+        fill.Size = Vector2.new(barW, barH * pct)
+        fill.Color = getHealthColor(pct)
 
         if settings.healthText ~= false then
-            health.hpText.Visible = true
-            health.hpText.Position = UDim2.new(0, barX - 2, 0, barY + barH * (1 - pct))
-            health.hpText.TextTransparency = alpha
-            health.hpText.TextSize = 8
+            local txt = self.drawings.healthText
+            txt.Visible = true
+            txt.Position = Vector2.new(barX - 2, barY + barH * (1 - pct))
+            txt.Text = tostring(math.floor(current.health))
+            txt.Color = fill.Color
+            txt.Size = 8
         else
-            health.hpText.Visible = false
+            self.drawings.healthText.Visible = false
         end
     else
-        local health = self.drawings.health
-        health.hBg.Visible = false
-        health.gradBg.Visible = false
-        health.gradMask.Visible = false
-        health.hpText.Visible = false
+        self.drawings.healthBg.Visible = false
+        self.drawings.healthFill.Visible = false
+        self.drawings.healthText.Visible = false
     end
 
     if settings.name then
         local name = self.drawings.name
         name.Visible = true
         name.Text = self.player.DisplayName
-        name.TextColor3 = Color3.new(1,1,1)
-        name.TextSize = 10
-        name.TextTransparency = alpha
-        name.Position = UDim2.new(0.5, 0, 0, - (offset.Y + name.TextSize + 2))
+        name.Color = Color3.new(1,1,1)
+        name.Size = GLOBAL_SIZE
+        name.Position = Vector2.new(vec2.X, vec2.Y - offset.Y - name.Size - 2)
     else
         self.drawings.name.Visible = false
     end
@@ -616,7 +355,7 @@ function playerESP:loop(settings, distance)
         weapon.Visible = true
 
         local gunName = "None"
-        local char = self.current.character
+        local char = current.character
         if char then
             for _, child in ipairs(char:GetChildren()) do
                 if child:IsA("Tool") then
@@ -626,10 +365,9 @@ function playerESP:loop(settings, distance)
             end
         end
         weapon.Text = gunName
-        weapon.TextColor3 = Color3.new(1,1,1)
-        weapon.TextSize = 9
-        weapon.TextTransparency = alpha
-        weapon.Position = UDim2.new(0.5, 0, 1, 2)
+        weapon.Color = Color3.new(1,1,1)
+        weapon.Size = GLOBAL_SIZE - 1
+        weapon.Position = Vector2.new(vec2.X, vec2.Y + offset.Y + 2)
     else
         self.drawings.weapon.Visible = false
     end
@@ -641,17 +379,13 @@ function playerESP:loop(settings, distance)
         local unit = "s"
         local val = math.floor(mag)
         dist.Text = val .. unit
-        dist.TextColor3 = Color3.new(1,1,1)
-        dist.TextSize = 8
-        dist.TextTransparency = alpha
-
+        dist.Color = Color3.new(1,1,1)
+        dist.Size = GLOBAL_SIZE - 2
         local yOff = settings.weapon and 13 or 0
-        dist.Position = UDim2.new(0.5, 0, 1, 2 + yOff)
+        dist.Position = Vector2.new(vec2.X, vec2.Y + offset.Y + 2 + yOff)
     else
         self.drawings.distance.Visible = false
     end
-
-    for _, lbl in ipairs(self.drawings.sideFlags) do lbl.Visible = false end
 end
 
 local entityESP = {
@@ -703,37 +437,48 @@ function entityESP:remove()
 end
 
 function entityESP:createWidget()
-    local container = Instance.new("Frame")
-    container.BackgroundTransparency = 1
-    container.BorderSizePixel = 0
-    container.ZIndex = 2
-    container.Visible = false
-    container.Parent = Overlay
-
-    local box2D = make2DBox(container, self.color, Color3.new(0,0,0), 1)
-    local boxCorner = makeCornerBox(container, self.color, Color3.new(0,0,0), 1, 0.22)
-    local boxObj = { ["2D"] = box2D, Corner = boxCorner }
-
-    local nameLbl = makeTextLabel(container, 10, 0.5, 1, 0.5, 0, Enum.TextXAlignment.Center)
-    nameLbl.Position = UDim2.new(0.5, 0, 0, -2)
-    nameLbl.TextColor3 = self.color
-
-    local distLbl = makeTextLabel(container, 8, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
-    distLbl.Position = UDim2.new(0.5, 0, 1, 2)
-    distLbl.TextColor3 = self.color
-
+    local box = createDrawing("Square", {
+        Visible = false,
+        Filled = false,
+        Thickness = 1,
+        Color = self.color,
+        ZIndex = 2,
+    })
+    local boxOutline = createDrawing("Square", {
+        Visible = false,
+        Filled = false,
+        Thickness = 3,
+        Color = Color3.new(0,0,0),
+        ZIndex = 1,
+    })
+    local name = createDrawing("Text", {
+        Visible = false,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = self.color,
+        Size = GLOBAL_SIZE,
+        Font = GLOBAL_FONT,
+        ZIndex = 2,
+        Text = self.name,
+    })
+    local distance = createDrawing("Text", {
+        Visible = false,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = self.color,
+        Size = GLOBAL_SIZE - 2,
+        Font = GLOBAL_FONT,
+        ZIndex = 2,
+    })
     local drawings = {
-        container = container,
-        box = boxObj,
-        name = nameLbl,
-        distance = distLbl,
-        all = { container, nameLbl, distLbl },
+        box = box,
+        boxOutline = boxOutline,
+        name = name,
+        distance = distance,
+        all = { box, boxOutline, name, distance },
     }
-    for _, style in pairs(boxObj) do
-        for _, l in ipairs(style.lines) do table.insert(drawings.all, l) end
-        for _, s in ipairs(style.shadows) do table.insert(drawings.all, s) end
-    end
-
     self.drawings = drawings
     self.allDrawings = drawings.all
 end
@@ -757,43 +502,34 @@ function entityESP:loop(settings, distance)
         return
     end
 
-    local centerPos = cframe.Position
-    local vec2, onscreen = worldToViewport(centerPos)
-    if not onscreen then
+    local vec2, offset = getScreenOffset(cframe.Position, size)
+    if not vec2 then
         self:hideDrawings()
         return
     end
 
-    local look = CFrame.new(centerPos, Camera.CFrame.Position)
-    local halfW = size.X / 2
-    local halfH = size.Y / 2
-    local topRight = worldToViewport((look * CFrame.new(halfW, halfH, 0)).Position)
-    local bottomRight = worldToViewport((look * CFrame.new(halfW, -halfH, 0)).Position)
-    local offsetX = math.max(topRight.X - vec2.X, bottomRight.X - vec2.X)
-    local offsetY = math.max((vec2.Y - topRight.Y), (bottomRight.Y - vec2.Y))
-    local offset = Vector2.new(offsetX, offsetY)
-
-    local container = self.drawings.container
-    container.Visible = true
-    container.Position = UDim2.new(0, vec2.X - offset.X, 0, vec2.Y - offset.Y)
-    container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
-
     if settings.box then
-        applyBoxStyle(self.drawings.box, "2D", 0, self.color, true, 1, Color3.new(0,0,0))
+        self.drawings.box.Visible = true
+        self.drawings.box.Position = vec2 - offset
+        self.drawings.box.Size = offset * 2
+        self.drawings.box.Color = self.color
+
+        self.drawings.boxOutline.Visible = true
+        self.drawings.boxOutline.Position = vec2 - offset - Vector2.new(1,1)
+        self.drawings.boxOutline.Size = offset * 2 + Vector2.new(2,2)
+        self.drawings.boxOutline.Color = Color3.new(0,0,0)
     else
-        for _, style in pairs(self.drawings.box) do
-            for _, l in ipairs(style.lines) do l.Visible = false end
-            for _, s in ipairs(style.shadows) do s.Visible = false end
-        end
+        self.drawings.box.Visible = false
+        self.drawings.boxOutline.Visible = false
     end
 
     if settings.name then
         local name = self.drawings.name
         name.Visible = true
         name.Text = self.name
-        name.TextColor3 = self.color
-        name.TextSize = 10
-        name.Position = UDim2.new(0.5, 0, 0, -(offset.Y + name.TextSize + 2))
+        name.Color = self.color
+        name.Size = GLOBAL_SIZE
+        name.Position = Vector2.new(vec2.X, vec2.Y - offset.Y - name.Size - 2)
     else
         self.drawings.name.Visible = false
     end
@@ -801,11 +537,11 @@ function entityESP:loop(settings, distance)
     if settings.distance then
         local dist = self.drawings.distance
         dist.Visible = true
-        local mag = distance or (Camera.CFrame.Position - centerPos).Magnitude
+        local mag = distance or (Camera.CFrame.Position - cframe.Position).Magnitude
         dist.Text = math.floor(mag) .. "s"
-        dist.TextColor3 = self.color
-        dist.TextSize = 8
-        dist.Position = UDim2.new(0.5, 0, 1, 2)
+        dist.Color = self.color
+        dist.Size = GLOBAL_SIZE - 2
+        dist.Position = Vector2.new(vec2.X, vec2.Y + offset.Y + 2)
     else
         self.drawings.distance.Visible = false
     end
@@ -899,40 +635,75 @@ function npcESP:remove()
 end
 
 function npcESP:createWidget()
-    local container = Instance.new("Frame")
-    container.BackgroundTransparency = 1
-    container.BorderSizePixel = 0
-    container.ZIndex = 2
-    container.Visible = false
-    container.Parent = Overlay
-
-    local box2D = make2DBox(container, self.color, Color3.new(0,0,0), 1)
-    local boxCorner = makeCornerBox(container, self.color, Color3.new(0,0,0), 1, 0.22)
-    local boxObj = { ["2D"] = box2D, Corner = boxCorner }
-
-    local health = createHealthBar(container, Color3.fromRGB(80,230,100))
-
-    local nameLbl = makeTextLabel(container, 10, 0.5, 1, 0.5, 0, Enum.TextXAlignment.Center)
-    nameLbl.Position = UDim2.new(0.5, 0, 0, -2)
-    nameLbl.TextColor3 = self.color
-
-    local distLbl = makeTextLabel(container, 8, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
-    distLbl.Position = UDim2.new(0.5, 0, 1, 2)
-    distLbl.TextColor3 = self.color
-
+    local box = createDrawing("Square", {
+        Visible = false,
+        Filled = false,
+        Thickness = 1,
+        Color = self.color,
+        ZIndex = 2,
+    })
+    local boxOutline = createDrawing("Square", {
+        Visible = false,
+        Filled = false,
+        Thickness = 3,
+        Color = Color3.new(0,0,0),
+        ZIndex = 1,
+    })
+    local healthBg = createDrawing("Square", {
+        Visible = false,
+        Filled = true,
+        Color = Color3.fromRGB(15,15,15),
+        Transparency = 0.7,
+        ZIndex = 1,
+    })
+    local healthFill = createDrawing("Square", {
+        Visible = false,
+        Filled = true,
+        Color = Color3.fromRGB(80,230,100),
+        ZIndex = 2,
+    })
+    local healthText = createDrawing("Text", {
+        Visible = false,
+        Center = false,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = Color3.new(1,1,1),
+        Size = 8,
+        Font = GLOBAL_FONT,
+        ZIndex = 3,
+        Text = "",
+    })
+    local name = createDrawing("Text", {
+        Visible = false,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = self.color,
+        Size = GLOBAL_SIZE,
+        Font = GLOBAL_FONT,
+        ZIndex = 2,
+        Text = self.name,
+    })
+    local distance = createDrawing("Text", {
+        Visible = false,
+        Center = true,
+        Outline = true,
+        OutlineColor = Color3.new(0,0,0),
+        Color = self.color,
+        Size = GLOBAL_SIZE - 2,
+        Font = GLOBAL_FONT,
+        ZIndex = 2,
+    })
     local drawings = {
-        container = container,
-        box = boxObj,
-        health = health,
-        name = nameLbl,
-        distance = distLbl,
-        all = { container, health.hBg, health.gradBg, health.hpText, nameLbl, distLbl },
+        box = box,
+        boxOutline = boxOutline,
+        healthBg = healthBg,
+        healthFill = healthFill,
+        healthText = healthText,
+        name = name,
+        distance = distance,
+        all = { box, boxOutline, healthBg, healthFill, healthText, name, distance },
     }
-    for _, style in pairs(boxObj) do
-        for _, l in ipairs(style.lines) do table.insert(drawings.all, l) end
-        for _, s in ipairs(style.shadows) do table.insert(drawings.all, s) end
-    end
-
     self.drawings = drawings
     self.allDrawings = drawings.all
 end
@@ -944,14 +715,10 @@ function npcESP:updateHealth(humanoid)
     self.health = health
     self.maxHealth = maxHealth
     self.healthPercentage = pct
-    local color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), pct)
-    self.drawings.health.hFill.BackgroundColor3 = color
-    self.drawings.health.hGrad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.new(math.min(1, color.R+0.25), math.min(1, color.G+0.25), math.min(1, color.B+0.25))),
-        ColorSequenceKeypoint.new(1, color),
-    })
-    self.drawings.health.hpText.TextColor3 = color
-    self.drawings.health.hpText.Text = tostring(math.floor(health))
+    local color = getHealthColor(pct)
+    self.drawings.healthFill.Color = color
+    self.drawings.healthText.Color = color
+    self.drawings.healthText.Text = tostring(math.floor(health))
 end
 
 function npcESP:hideDrawings()
@@ -968,40 +735,43 @@ function npcESP:loop(settings, distance)
     end
 
     local useR15 = self.humanoid and not self.ignoreR15
-    local cframe, size = getBoundingBox(useR15 and self.humanoid or entity, useR15)
+    local cframe, size
+    if useR15 then
+        local hrp = entity:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            cframe = CFrame.new(hrp.Position)
+            size = Vector3.new(4.5, 6.2, 4.5)
+        else
+            cframe, size = entity:GetBoundingBox()
+        end
+    else
+        cframe, size = entity:GetBoundingBox()
+    end
+
     if not cframe then
         self:hideDrawings()
         return
     end
 
-    local centerPos = cframe.Position
-    local vec2, onscreen = worldToViewport(centerPos)
-    if not onscreen then
+    local vec2, offset = getScreenOffset(cframe.Position, size)
+    if not vec2 then
         self:hideDrawings()
         return
     end
 
-    local look = CFrame.new(centerPos, Camera.CFrame.Position)
-    local halfW = size.X / 2
-    local halfH = size.Y / 2
-    local topRight = worldToViewport((look * CFrame.new(halfW, halfH, 0)).Position)
-    local bottomRight = worldToViewport((look * CFrame.new(halfW, -halfH, 0)).Position)
-    local offsetX = math.max(topRight.X - vec2.X, bottomRight.X - vec2.X)
-    local offsetY = math.max((vec2.Y - topRight.Y), (bottomRight.Y - vec2.Y))
-    local offset = Vector2.new(offsetX, offsetY)
-
-    local container = self.drawings.container
-    container.Visible = true
-    container.Position = UDim2.new(0, vec2.X - offset.X, 0, vec2.Y - offset.Y)
-    container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
-
     if settings.box then
-        applyBoxStyle(self.drawings.box, "2D", 0, self.color, true, 1, Color3.new(0,0,0))
+        self.drawings.box.Visible = true
+        self.drawings.box.Position = vec2 - offset
+        self.drawings.box.Size = offset * 2
+        self.drawings.box.Color = self.color
+
+        self.drawings.boxOutline.Visible = true
+        self.drawings.boxOutline.Position = vec2 - offset - Vector2.new(1,1)
+        self.drawings.boxOutline.Size = offset * 2 + Vector2.new(2,2)
+        self.drawings.boxOutline.Color = Color3.new(0,0,0)
     else
-        for _, style in pairs(self.drawings.box) do
-            for _, l in ipairs(style.lines) do l.Visible = false end
-            for _, s in ipairs(style.shadows) do s.Visible = false end
-        end
+        self.drawings.box.Visible = false
+        self.drawings.boxOutline.Visible = false
     end
 
     if settings.healthbar and self.humanoid then
@@ -1011,39 +781,39 @@ function npcESP:loop(settings, distance)
         local barY = vec2.Y - offset.Y
         local barH = offset.Y * 2
 
-        local health = self.drawings.health
-        health.hBg.Visible = true
-        health.gradBg.Visible = false
-        health.gradMask.Visible = false
-        health.hBg.Position = UDim2.new(0, barX, 0, barY)
-        health.hBg.Size = UDim2.new(0, barW, 0, barH)
-        health.hBg.BackgroundTransparency = 0
-        health.hFill.Size = UDim2.new(1, 0, pct, 0)
-        health.hFill.BackgroundTransparency = 0
+        self.drawings.healthBg.Visible = true
+        self.drawings.healthBg.Position = Vector2.new(barX, barY)
+        self.drawings.healthBg.Size = Vector2.new(barW, barH)
+        self.drawings.healthBg.Transparency = 0.7
+
+        self.drawings.healthFill.Visible = true
+        self.drawings.healthFill.Position = Vector2.new(barX, barY + barH * (1 - pct))
+        self.drawings.healthFill.Size = Vector2.new(barW, barH * pct)
+        self.drawings.healthFill.Color = getHealthColor(pct)
 
         if settings.healthText ~= false then
-            health.hpText.Visible = true
-            health.hpText.Position = UDim2.new(0, barX - 2, 0, barY + barH * (1 - pct))
-            health.hpText.TextTransparency = 0
-            health.hpText.TextSize = 8
+            local txt = self.drawings.healthText
+            txt.Visible = true
+            txt.Position = Vector2.new(barX - 2, barY + barH * (1 - pct))
+            txt.Text = tostring(math.floor(self.health))
+            txt.Color = self.drawings.healthFill.Color
+            txt.Size = 8
         else
-            health.hpText.Visible = false
+            self.drawings.healthText.Visible = false
         end
     else
-        local health = self.drawings.health
-        health.hBg.Visible = false
-        health.gradBg.Visible = false
-        health.gradMask.Visible = false
-        health.hpText.Visible = false
+        self.drawings.healthBg.Visible = false
+        self.drawings.healthFill.Visible = false
+        self.drawings.healthText.Visible = false
     end
 
     if settings.name then
         local name = self.drawings.name
         name.Visible = true
         name.Text = self.name
-        name.TextColor3 = self.color
-        name.TextSize = 10
-        name.Position = UDim2.new(0.5, 0, 0, -(offset.Y + name.TextSize + 2))
+        name.Color = self.color
+        name.Size = GLOBAL_SIZE
+        name.Position = Vector2.new(vec2.X, vec2.Y - offset.Y - name.Size - 2)
     else
         self.drawings.name.Visible = false
     end
@@ -1051,11 +821,11 @@ function npcESP:loop(settings, distance)
     if settings.distance then
         local dist = self.drawings.distance
         dist.Visible = true
-        local mag = distance or (Camera.CFrame.Position - centerPos).Magnitude
+        local mag = distance or (Camera.CFrame.Position - cframe.Position).Magnitude
         dist.Text = math.floor(mag) .. "s"
-        dist.TextColor3 = self.color
-        dist.TextSize = 8
-        dist.Position = UDim2.new(0.5, 0, 1, 2)
+        dist.Color = self.color
+        dist.Size = GLOBAL_SIZE - 2
+        dist.Position = Vector2.new(vec2.X, vec2.Y + offset.Y + 2)
     else
         self.drawings.distance.Visible = false
     end
