@@ -1,771 +1,1070 @@
-local cloneref          = cloneref or function(...) return ...; end;
-local compareinstances  = compareinstances or rawequal;
+local cloneref = cloneref or function(x) return x end
 
-local runService        = cloneref(game:GetService('RunService'));
-local currentCamera     = cloneref(workspace.CurrentCamera);
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local CoreGui = (gethui and gethui()) or game:GetService("CoreGui")
 
--- Load custom font (optional - will fallback to system fonts if unavailable)
-local CustomFont = nil
-if typeof(Font) == "table" then
-	pcall(function()
-		CustomFont = Font.new("https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/proggy-tiny.ttf")
-	end)
+local customFont = nil
+local function loadCustomFont()
+    local fontFile = "tiny.ttf"
+    local fontMeta = "tiny.font"
+    local fontUrl = "https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/proggy-tiny.ttf"
+    local ok, result = pcall(function()
+        if not isfile(fontFile) then
+            writefile(fontFile, game:HttpGet(fontUrl))
+        end
+        local data = {
+            name = "tiny",
+            faces = {
+                { name = "tiny", weight = 400, style = "Regular", assetId = getcustomasset(fontFile) },
+            },
+        }
+        writefile(fontMeta, game:GetService("HttpService"):JSONEncode(data))
+        return Font.new(getcustomasset(fontMeta))
+    end)
+    if ok then customFont = result end
+end
+loadCustomFont()
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "InsulinESP"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+local Overlay = Instance.new("Frame")
+Overlay.Size = UDim2.new(1, 0, 1, 0)
+Overlay.BackgroundTransparency = 1
+Overlay.BorderSizePixel = 0
+Overlay.Parent = ScreenGui
+
+local function makeStyleFrame(parent, color, zIndex)
+    local f = Instance.new("Frame")
+    f.BackgroundColor3 = color
+    f.BorderSizePixel = 0
+    f.ZIndex = zIndex
+    f.Visible = false
+    f.Parent = parent
+    return f
 end
 
-local createGuiFrame = function(parent, properties, ...)
-	local frame = Instance.new("Frame")
-	frame.BackgroundTransparency = 1
-	frame.BorderSizePixel = 0
-	for i, value in pairs(properties) do
-		frame[i] = value
-	end
-	for _, _table in {...} do
-		table.insert(_table, frame)
-	end
-	return frame
+local function make2DBox(parent, color, outlineColor, thickness)
+    local oThick = thickness + 2
+    local lines, shadows = {}, {}
+
+    local topS = makeStyleFrame(parent, outlineColor, 2)
+    topS.AnchorPoint = Vector2.new(0, 0)
+    topS.Size = UDim2.new(1, 0, 0, oThick)
+    topS.Position = UDim2.new(0, 0, 0, -1)
+    local topL = makeStyleFrame(parent, color, 3)
+    topL.AnchorPoint = Vector2.new(0, 0)
+    topL.Size = UDim2.new(1, 0, 0, thickness)
+    topL.Position = UDim2.new(0, 0, 0, 0)
+
+    local botS = makeStyleFrame(parent, outlineColor, 2)
+    botS.AnchorPoint = Vector2.new(0, 1)
+    botS.Size = UDim2.new(1, 0, 0, oThick)
+    botS.Position = UDim2.new(0, 0, 1, 1)
+    local botL = makeStyleFrame(parent, color, 3)
+    botL.AnchorPoint = Vector2.new(0, 1)
+    botL.Size = UDim2.new(1, 0, 0, thickness)
+    botL.Position = UDim2.new(0, 0, 1, 0)
+
+    local leftS = makeStyleFrame(parent, outlineColor, 2)
+    leftS.AnchorPoint = Vector2.new(0, 0)
+    leftS.Size = UDim2.new(0, oThick, 1, 0)
+    leftS.Position = UDim2.new(0, -1, 0, 0)
+    local leftL = makeStyleFrame(parent, color, 3)
+    leftL.AnchorPoint = Vector2.new(0, 0)
+    leftL.Size = UDim2.new(0, thickness, 1, 0)
+    leftL.Position = UDim2.new(0, 0, 0, 0)
+
+    local rightS = makeStyleFrame(parent, outlineColor, 2)
+    rightS.AnchorPoint = Vector2.new(1, 0)
+    rightS.Size = UDim2.new(0, oThick, 1, 0)
+    rightS.Position = UDim2.new(1, 1, 0, 0)
+    local rightL = makeStyleFrame(parent, color, 3)
+    rightL.AnchorPoint = Vector2.new(1, 0)
+    rightL.Size = UDim2.new(0, thickness, 1, 0)
+    rightL.Position = UDim2.new(1, 0, 0, 0)
+
+    lines = {topL, botL, leftL, rightL}
+    shadows = {topS, botS, leftS, rightS}
+    return {lines = lines, shadows = shadows}
 end
 
-local createGuiLabel = function(parent, properties, ...)
-	local label = Instance.new("TextLabel")
-	label.BackgroundTransparency = 1
-	label.BorderSizePixel = 0
-	if CustomFont ~= nil then
-		pcall(function()
-			label.FontFace = CustomFont
-		end)
-	end
-	if not label.FontFace or label.FontFace == nil then
-		label.Font = Enum.Font.GothamMedium
-	end
-	for i, value in pairs(properties) do
-		label[i] = value
-	end
-	for _, _table in {...} do
-		table.insert(_table, label)
-	end
-	return label
+local function makeCornerBox(parent, color, outlineColor, thickness, lenScale)
+    local oThick = thickness + 2
+    local sizeH = UDim2.new(lenScale, 0, 0, thickness)
+    local sizeV = UDim2.new(0, thickness, lenScale, 0)
+    local sizeHO = UDim2.new(lenScale, 0, 0, oThick)
+    local sizeVO = UDim2.new(0, oThick, lenScale, 0)
+
+    local lines, shadows = {}, {}
+
+    local function corner(ax, ay, px, py)
+        local hOffY = ay == 0 and -1 or 1
+        local vOffX = ax == 0 and -1 or 1
+
+        local sH = makeStyleFrame(parent, outlineColor, 2)
+        sH.AnchorPoint = Vector2.new(ax, ay)
+        sH.Position = UDim2.new(px, 0, py, hOffY)
+        sH.Size = sizeHO
+        local lH = makeStyleFrame(parent, color, 3)
+        lH.AnchorPoint = Vector2.new(ax, ay)
+        lH.Position = UDim2.new(px, 0, py, 0)
+        lH.Size = sizeH
+
+        local sV = makeStyleFrame(parent, outlineColor, 2)
+        sV.AnchorPoint = Vector2.new(ax, ay)
+        sV.Position = UDim2.new(px, vOffX, py, 0)
+        sV.Size = sizeVO
+        local lV = makeStyleFrame(parent, color, 3)
+        lV.AnchorPoint = Vector2.new(ax, ay)
+        lV.Position = UDim2.new(px, 0, py, 0)
+        lV.Size = sizeV
+
+        lines[#lines + 1] = lH
+        lines[#lines + 1] = lV
+        shadows[#shadows + 1] = sH
+        shadows[#shadows + 1] = sV
+    end
+
+    corner(0, 0, 0, 0)
+    corner(1, 0, 1, 0)
+    corner(0, 1, 0, 1)
+    corner(1, 1, 1, 1)
+
+    return {lines = lines, shadows = shadows}
 end
 
-local createStyledLine = function(parent, color, thickness, zindex)
-	local line = Instance.new("Frame")
-	line.BackgroundColor3 = color
-	line.BorderSizePixel = 0
-	line.ZIndex = zindex
-	line.Visible = false
-	line.Parent = parent
-	return line
+local function applyBoxStyle(boxObj, styleName, alpha, color, withOutline, thickness, outlineColor)
+    for sn, style in pairs(boxObj) do
+        if sn ~= styleName then
+            for _, l in ipairs(style.lines) do l.Visible = false end
+            for _, s in ipairs(style.shadows) do s.Visible = false end
+        end
+    end
+    local active = boxObj[styleName] or boxObj["2D"]
+    local isCorner = styleName == "Corner"
+    local lenScale = 0.22
+    local oThick = thickness + 2
+    outlineColor = outlineColor or Color3.fromRGB(0,0,0)
+
+    for i, l in ipairs(active.lines) do
+        l.BackgroundColor3 = color
+        l.BackgroundTransparency = alpha
+        l.Visible = true
+        if isCorner then
+            if i % 2 == 1 then
+                l.Size = UDim2.new(lenScale, 0, 0, thickness)
+            else
+                l.Size = UDim2.new(0, thickness, lenScale, 0)
+            end
+        end
+    end
+    for i, s in ipairs(active.shadows) do
+        if withOutline then
+            s.BackgroundColor3 = outlineColor
+            s.BackgroundTransparency = alpha
+            s.Visible = true
+            if isCorner then
+                if i % 2 == 1 then
+                    s.Size = UDim2.new(lenScale, 0, 0, oThick)
+                else
+                    s.Size = UDim2.new(0, oThick, lenScale, 0)
+                end
+            end
+        else
+            s.Visible = false
+        end
+    end
 end
 
-local getBoundingBox = function(model, isPlayer: boolean?)
-	if (isPlayer) then
-		return model:ComputeR15BodyBoundingBox()
-	end
-	return model:GetBoundingBox()
+local function makeTextLabel(parent, textSize, anchorX, anchorY, posX, posY, alignment, customFont)
+    local lbl = Instance.new("TextLabel")
+    lbl.AnchorPoint = Vector2.new(anchorX, anchorY)
+    lbl.BackgroundTransparency = 1
+    lbl.Size = UDim2.new(1, 60, 0, textSize + 2)
+    lbl.Position = UDim2.new(posX, 0, posY, 0)
+    lbl.TextSize = textSize
+    if customFont then
+        lbl.FontFace = customFont
+    else
+        lbl.Font = Enum.Font.GothamMedium
+    end
+    lbl.TextColor3 = Color3.new(1,1,1)
+    lbl.TextStrokeColor3 = Color3.new(0,0,0)
+    lbl.TextStrokeTransparency = 0
+    lbl.TextXAlignment = alignment or Enum.TextXAlignment.Center
+    lbl.ZIndex = 5
+    lbl.Visible = false
+    lbl.Parent = parent
+    return lbl
 end
 
-local worldToViewPoint = function(position)
-	local pos, onscreen = currentCamera:WorldToViewportPoint(position)
-	return Vector2.new(pos.X, pos.Y), onscreen, pos.Z
+local function createHealthBar(parent, defaultColor)
+    local hBg = Instance.new("Frame")
+    hBg.BackgroundColor3 = Color3.fromRGB(15,15,15)
+    hBg.BorderSizePixel = 0
+    hBg.ZIndex = 4
+    hBg.Visible = false
+    hBg.ClipsDescendants = true
+    hBg.Parent = Overlay
+    Instance.new("UICorner", hBg).CornerRadius = UDim.new(1,0)
+    local hOutline = Instance.new("UIStroke", hBg)
+    hOutline.Color = Color3.new(0,0,0)
+    hOutline.Thickness = 1
+    hOutline.Transparency = 0
+
+    local hFill = Instance.new("Frame")
+    hFill.AnchorPoint = Vector2.new(0,1)
+    hFill.BackgroundColor3 = defaultColor
+    hFill.BorderSizePixel = 0
+    hFill.Size = UDim2.new(1,0,1,0)
+    hFill.Position = UDim2.new(0,0,1,0)
+    hFill.ZIndex = 5
+    hFill.Parent = hBg
+    Instance.new("UICorner", hFill).CornerRadius = UDim.new(1,0)
+    local hGrad = Instance.new("UIGradient", hFill)
+    hGrad.Rotation = 0
+    hGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.1),
+        NumberSequenceKeypoint.new(0.5, 0),
+        NumberSequenceKeypoint.new(1, 0.2),
+    })
+
+    local gradBg = Instance.new("Frame")
+    gradBg.BackgroundColor3 = Color3.new(1,1,1)
+    gradBg.BorderSizePixel = 0
+    gradBg.ZIndex = 4
+    gradBg.Visible = false
+    gradBg.ClipsDescendants = true
+    gradBg.Parent = Overlay
+    Instance.new("UICorner", gradBg).CornerRadius = UDim.new(1,0)
+    local gradGrad = Instance.new("UIGradient", gradBg)
+    gradGrad.Rotation = 90
+    gradGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(80,230,100)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,200,60)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(230,60,60)),
+    })
+    local gradMask = Instance.new("Frame")
+    gradMask.BackgroundColor3 = Color3.new(0,0,0)
+    gradMask.BorderSizePixel = 0
+    gradMask.AnchorPoint = Vector2.new(0,0)
+    gradMask.Position = UDim2.new(0,0,0,0)
+    gradMask.Size = UDim2.new(1,0,0,0)
+    gradMask.ZIndex = 5
+    gradMask.Parent = gradBg
+
+    local hpText = Instance.new("TextLabel")
+    hpText.AnchorPoint = Vector2.new(1, 0.5)
+    hpText.BackgroundTransparency = 1
+    hpText.Size = UDim2.new(0, 32, 0, 8 + 2)
+    hpText.TextSize = 8
+    if customFont then
+        hpText.FontFace = customFont
+    else
+        hpText.Font = Enum.Font.GothamBold
+    end
+    hpText.TextColor3 = Color3.new(1,1,1)
+    hpText.TextStrokeColor3 = Color3.new(0,0,0)
+    hpText.TextStrokeTransparency = 0
+    hpText.TextXAlignment = Enum.TextXAlignment.Right
+    hpText.ZIndex = 6
+    hpText.Visible = false
+    hpText.Parent = Overlay
+
+    return {
+        hBg = hBg,
+        hFill = hFill,
+        hGrad = hGrad,
+        gradBg = gradBg,
+        gradMask = gradMask,
+        hpText = hpText,
+    }
 end
 
-local executor 	= identifyexecutor and identifyexecutor() or 'unknown'
-local GLOBAL_FONT = executor == 'AWP' and 0 or executor == 'Zenith' and 3 or 1
-local GLOBAL_SIZE = executor == 'AWP' and 16 or executor == 'Zenith' and 15 or 13
-
-local BASE_ZINDEX = 1
-
-local espLibrary = {}
-
--- playerESP
-do
-	local playerESP = {
-		playerCache = {}
-		drawingCache = {}
-		allDrawingCache = {}
-		childAddedConnections = {}
-		childRemovedConnections = {}
-		drawingAddedConnections = {}
-	}
-	playerESP.__index = playerESP
-
-	playerESP.onChildAdded = function(_function)
-		table.insert(playerESP.childAddedConnections, _function)
-	end
-	playerESP.onChildRemoved = function(_function)
-		table.insert(playerESP.childRemovedConnections, _function)
-	end
-	playerESP.onDrawingAdded = function(_func)
-		table.insert(playerESP.drawingAddedConnections, _func)
-	end
-
-	playerESP.new = function(player: Player)
-		local self = setmetatable({
-			player      = player
-			connections = {}
-			hidden      = false
-			allDrawings = nil
-			drawings    = nil
-			current     = nil
-			container   = nil
-			boxLines    = {}
-			boxShadows  = {}
-		}, playerESP)
-
-		local cache = playerESP.drawingCache[1]
-		if (cache) then
-			table.remove(playerESP.drawingCache, 1)
-			cache.name.Text = player.DisplayName
-			self.allDrawings = cache.all
-			self.drawings = cache
-			self.container = cache.container
-			self.boxLines = cache.boxLines
-			self.boxShadows = cache.boxShadows
-		else
-			self:createDrawingCache()
-		end
-
-		for i = 1, #playerESP.drawingAddedConnections do
-			playerESP.drawingAddedConnections[i](self)
-		end
-
-		table.insert(self.connections, player.CharacterAdded:Connect(function(...)
-			return self:characterAdded(...)
-		end))
-		table.insert(self.connections, player.CharacterRemoving:Connect(function(...)
-			return self:characterRemoved(...)
-		end))
-
-		if (player.Character) then
-			self:characterAdded(player.Character, true)
-		end
-
-		playerESP.playerCache[player] = self
-
-		return self
-	end
-
-	playerESP.remove = function(player: Player)
-		local cache = playerESP.playerCache[player]
-		if (type(cache) ~= 'table' or type(cache.drawings) ~= 'table' or type(cache.connections) ~= 'table') then
-			return
-		end
-
-		playerESP.playerCache[player] = nil
-
-		for i = 1, #cache.connections do
-			cache.connections[i]:Disconnect()
-		end
-
-		table.insert(playerESP.drawingCache, cache.drawings)
-	end
-
-	function playerESP:createDrawingCache()
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.ResetOnSpawn = false
-		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		screenGui.Parent = cloneref(game:GetService("CoreGui"))
-
-		local allDrawings = {}
-		local container = createGuiFrame(screenGui, {
-			Visible = false
-			ZIndex = BASE_ZINDEX + 2
-		}, allDrawings)
-
-		local boxLines = {}
-		local boxShadows = {}
-
-		-- Create corner bracket lines
-		for i = 1, 4 do
-			local line = createStyledLine(container, Color3.new(1, 1, 1), 1, BASE_ZINDEX + 3)
-			table.insert(boxLines, line)
-		end
-
-		-- Create corner bracket shadows
-		for i = 1, 4 do
-			local shadow = createStyledLine(container, Color3.new(0, 0, 0), 2, BASE_ZINDEX + 1)
-			table.insert(boxShadows, shadow)
-		end
-
-		local drawings = {
-			container = container
-			boxLines = boxLines
-			boxShadows = boxShadows
-
-			healthBar = createGuiFrame(container, {
-				BackgroundColor3 = Color3.new(0, 1, 0)
-				ZIndex = BASE_ZINDEX + 3
-			}, allDrawings)
-			healthBackground = createGuiFrame(container, {
-				BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
-				ZIndex = BASE_ZINDEX + 1
-			}, allDrawings)
-
-			name = createGuiLabel(container, {
-				TextSize = GLOBAL_SIZE
-				TextColor3 = Color3.new(1, 1, 1)
-				TextStrokeColor3 = Color3.new(0, 0, 0)
-				TextStrokeTransparency = 0
-				TextXAlignment = Enum.TextXAlignment.Center
-				ZIndex = BASE_ZINDEX + 3
-				Text = self.player.DisplayName
-			}, allDrawings)
-
-			distance = createGuiLabel(container, {
-				TextSize = GLOBAL_SIZE
-				TextColor3 = Color3.new(1, 1, 1)
-				TextStrokeColor3 = Color3.new(0, 0, 0)
-				TextStrokeTransparency = 0
-				TextXAlignment = Enum.TextXAlignment.Center
-				ZIndex = BASE_ZINDEX + 3
-			}, allDrawings)
-
-			weapon = createGuiLabel(container, {
-				TextSize = GLOBAL_SIZE
-				TextColor3 = Color3.new(1, 1, 1)
-				TextStrokeColor3 = Color3.new(0, 0, 0)
-				TextStrokeTransparency = 0
-				TextXAlignment = Enum.TextXAlignment.Center
-				ZIndex = BASE_ZINDEX + 3
-			}, allDrawings)
-		}
-		drawings.all = allDrawings
-
-		self.drawings = drawings
-		self.allDrawings = allDrawings
-		self.container = container
-		self.boxLines = boxLines
-		self.boxShadows = boxShadows
-
-		table.insert(self.drawings, self.allDrawingCache)
-	end
-
-	function playerESP:hideDrawings()
-		if (self.hidden) then
-			return
-		end
-		self.hidden = true
-		self.container.Visible = false
-	end
-
-	function playerESP:showDrawings()
-		if (not self.hidden) then
-			return
-		end
-		self.hidden = false
-		self.container.Visible = true
-	end
-
-	function playerESP:characterAdded(character, duringInit)
-		if (not character or not character:IsA("Model")) then
-			return self:hideDrawings()
-		end
-
-		local humanoid = character:WaitForChild("Humanoid", 5)
-		if (not humanoid) then
-			return self:hideDrawings()
-		end
-
-		local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-		if (not humanoidRootPart) then
-			return self:hideDrawings()
-		end
-
-		self.current = {
-			character = character
-			humanoid = humanoid
-			humanoidRootPart = humanoidRootPart
-		}
-
-		table.insert(self.connections, humanoid:GetPropertyChangedSignal("Health"):Connect(function()
-			self:updateHealth()
-		end))
-
-		self:updateHealth()
-		self:showDrawings()
-	end
-
-	function playerESP:characterRemoved()
-		self.current = nil
-		self:hideDrawings()
-	end
-
-	function playerESP:updateHealth()
-		if (not self.current or not self.current.humanoid) then
-			return
-		end
-
-		local health = self.current.humanoid.Health
-		local maxHealth = self.current.humanoid.MaxHealth
-
-		self.health = health
-		self.maxHealth = maxHealth
-		self.healthPercentage = health / maxHealth
-
-		local healthColor = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), self.healthPercentage)
-		self.drawings.healthBar.BackgroundColor3 = healthColor
-	end
-
-	function playerESP:renderCornerBrackets(position, size)
-		local bracketSize = math.min(size.X, size.Y) * 0.2
-		local thick = 1
-
-		local function setLine(line, x, y, w, h)
-			line.Position = UDim2.new(0, x, 0, y)
-			line.Size = UDim2.new(0, w, 0, h)
-			line.Visible = true
-		end
-
-		local function setShadow(shadow, x, y, w, h)
-			shadow.Position = UDim2.new(0, x - 1, 0, y - 1)
-			shadow.Size = UDim2.new(0, w + 2, 0, h + 2)
-			shadow.Visible = true
-		end
-
-		-- Top-left
-		setLine(self.boxLines[1], 0, 0, bracketSize, thick)
-		setLine(self.boxLines[2], 0, 0, thick, bracketSize)
-		setShadow(self.boxShadows[1], -1, -1, bracketSize + 2, 3)
-		setShadow(self.boxShadows[2], -1, -1, 3, bracketSize + 2)
-
-		-- Top-right
-		if self.boxLines[3] and self.boxLines[4] then
-			setLine(self.boxLines[3], size.X - bracketSize, 0, bracketSize, thick)
-			setLine(self.boxLines[4], size.X - thick, 0, thick, bracketSize)
-		end
-		if self.boxShadows[3] and self.boxShadows[4] then
-			setShadow(self.boxShadows[3], size.X - bracketSize - 1, -1, bracketSize + 2, 3)
-			setShadow(self.boxShadows[4], size.X - 1, -1, 3, bracketSize + 2)
-		end
-	end
-
-	function playerESP:loop(settings, distance)
-		if (not self.current or not self.current.character or not self.current.humanoidRootPart) then
-			return self:hideDrawings()
-		end
-
-		local useR15 = self.current.humanoid ~= nil and not self.ignoreR15
-		local goal, size = getBoundingBox(useR15 and self.current.humanoid or self.current.character, useR15)
-
-		local vector2, onscreen = worldToViewPoint(goal.Position)
-		if (not onscreen) then
-			return self:hideDrawings()
-		end
-		self.hidden = false
-
-		local cframe = CFrame.new(goal.Position, currentCamera.CFrame.Position)
-
-		local x, y = -size.X / 2, size.Y / 2
-		local topright    = worldToViewPoint((cframe * CFrame.new(x, y, 0)).Position)
-		local bottomright = worldToViewPoint((cframe * CFrame.new(x, -y, 0)).Position)
-
-		local offset = Vector2.new(
-			math.max(topright.X - vector2.X, bottomright.X - vector2.X),
-			math.max((vector2.Y - topright.Y), (bottomright.Y - vector2.Y))
-		)
-
-		self:renderBox(vector2, offset, settings.box)
-		self:renderName(vector2, offset, settings.name)
-		self:renderDistance(vector2, offset, settings.distance, distance)
-		self:renderWeapon(vector2, offset, settings.weapon)
-		self:renderHealthbar(vector2, offset, settings.healthbar)
-	end
-
-	function playerESP:renderBox(vector2, offset, enabled)
-		if (not enabled) then
-			self.container.Visible = false
-			return
-		end
-
-		self.container.Visible = true
-		self.container.Position = UDim2.new(0, vector2.X - offset.X, 0, vector2.Y - offset.Y)
-		self.container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
-
-		self:renderCornerBrackets(vector2 - offset, offset * 2)
-	end
-
-	function playerESP:renderName(vector2, offset, enabled)
-		local name = self.drawings.name
-
-		if (not enabled) then
-			name.Visible = false
-			return
-		end
-
-		name.Visible = true
-		name.Size = UDim2.new(1, 60, 0, self.drawings.name.TextSize + 2)
-		name.Position = UDim2.new(0.5, 0, -0.15, 0)
-	end
-
-	function playerESP:renderDistance(vector2, offset, enabled, _distance)
-		local distance = self.drawings.distance
-
-		if (not enabled) then
-			distance.Visible = false
-			return
-		end
-
-		local magnitude = math.round(_distance or (currentCamera.CFrame.Position - self.current.humanoidRootPart.Position).Magnitude)
-
-		distance.Visible = true
-		distance.Size = UDim2.new(1, 60, 0, self.drawings.distance.TextSize + 2)
-		distance.Position = UDim2.new(0.5, 0, 1.05, 0)
-		distance.Text = `[{magnitude}]`
-	end
-
-	function playerESP:renderWeapon(vector2, offset, enabled)
-		local weapon = self.drawings.weapon
-
-		if (not enabled) then
-			weapon.Visible = false
-			return
-		end
-
-		weapon.Visible = true
-		weapon.Size = UDim2.new(1, 60, 0, self.drawings.weapon.TextSize + 2)
-		weapon.Position = UDim2.new(0.5, 0, 1.25, 0)
-	end
-
-	function playerESP:renderHealthbar(vector2, offset, enabled)
-		if (not enabled) then
-			self.drawings.healthBar.Visible = false
-			self.drawings.healthBackground.Visible = false
-			return
-		end
-
-		local healthBar = self.drawings.healthBar
-		local healthBackground = self.drawings.healthBackground
-
-		healthBar.Visible = true
-		healthBackground.Visible = true
-
-		local barWidth = 3
-		local barHeight = offset.Y * 2
-
-		healthBackground.Position = UDim2.new(0, -barWidth - 5, 0, 0)
-		healthBackground.Size = UDim2.new(0, barWidth, 1, 0)
-
-		local healthLength = barHeight * self.healthPercentage
-		healthBar.Position = UDim2.new(0, -barWidth - 5, 1, -healthLength)
-		healthBar.Size = UDim2.new(0, barWidth, 0, healthLength)
-	end
-
-	espLibrary.playerESP = playerESP
+local function getBoundingBox(character, isPlayer)
+    if isPlayer then
+
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return nil end
+        local pos = hrp.Position
+        local w = 4.5
+        local h = 6.2
+
+        return CFrame.new(pos), Vector3.new(w, h, w)
+    else
+        return character:GetBoundingBox()
+    end
 end
 
--- npcESP
-do
-	local npcESP = {
-		npcCache = {}
-		drawingCache = {}
-		childAddedConnections = {}
-		childRemovedConnections = {}
-	}
-	npcESP.__index = npcESP
-
-	npcESP.onChildAdded = function(_function)
-		table.insert(npcESP.childAddedConnections, _function)
-	end
-	npcESP.onChildRemoved = function(_function)
-		table.insert(npcESP.childRemovedConnections, _function)
-	end
-
-	npcESP.new = function(entity, name, colour)
-		local self = setmetatable({
-			entity = entity
-			name = name
-			colour = colour
-			connections = {}
-			hidden = false
-			allDrawings = nil
-			drawings = nil
-			humanoid = nil
-			health = 100
-			maxHealth = 100
-			healthPercentage = 1
-			ignoreR15 = false
-			container = nil
-			boxLines = {}
-			boxShadows = {}
-		}, npcESP)
-
-		local cache = npcESP.drawingCache[1]
-		if (cache) then
-			table.remove(npcESP.drawingCache, 1)
-			cache.name.Text = name
-			self.allDrawings = cache.all
-			self.drawings = cache
-			self.container = cache.container
-			self.boxLines = cache.boxLines
-			self.boxShadows = cache.boxShadows
-		else
-			self:createDrawingCache()
-		end
-
-		local humanoid = entity:FindFirstChildOfClass("Humanoid")
-		if (humanoid) then
-			self:setupHumanoid(humanoid)
-		end
-
-		npcESP.npcCache[entity] = self
-
-		return self
-	end
-
-	npcESP.remove = function(entity)
-		local cache = npcESP.npcCache[entity]
-		if (type(cache) ~= 'table' or type(cache.drawings) ~= 'table' or type(cache.connections) ~= 'table') then
-			return
-		end
-
-		npcESP.npcCache[entity] = nil
-
-		for i = 1, #cache.connections do
-			cache.connections[i]:Disconnect()
-		end
-
-		if cache.container and cache.container.Parent then
-			cache.container.Parent:Destroy()
-		end
-
-		table.insert(npcESP.drawingCache, cache.drawings)
-	end
-
-	function npcESP:createDrawingCache()
-		local screenGui = Instance.new("ScreenGui")
-		screenGui.ResetOnSpawn = false
-		screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-		screenGui.Parent = cloneref(game:GetService("CoreGui"))
-
-		local allDrawings = {}
-		local container = createGuiFrame(screenGui, {
-			Visible = false
-			ZIndex = BASE_ZINDEX + 2
-		}, allDrawings)
-
-		local boxLines = {}
-		local boxShadows = {}
-
-		-- Create corner bracket lines
-		for i = 1, 4 do
-			local line = createStyledLine(container, self.colour, 1, BASE_ZINDEX + 3)
-			table.insert(boxLines, line)
-		end
-
-		-- Create corner bracket shadows
-		for i = 1, 4 do
-			local shadow = createStyledLine(container, Color3.new(0, 0, 0), 2, BASE_ZINDEX + 1)
-			table.insert(boxShadows, shadow)
-		end
-
-		local drawings = {
-			container = container
-			boxLines = boxLines
-			boxShadows = boxShadows
-
-			healthBar = createGuiFrame(container, {
-				BackgroundColor3 = Color3.new(0, 1, 0)
-				ZIndex = BASE_ZINDEX + 3
-			}, allDrawings)
-			healthBackground = createGuiFrame(container, {
-				BackgroundColor3 = Color3.new(0.15, 0.15, 0.15)
-				ZIndex = BASE_ZINDEX + 1
-			}, allDrawings)
-
-			name = createGuiLabel(container, {
-				TextSize = GLOBAL_SIZE
-				TextColor3 = self.colour
-				TextStrokeColor3 = Color3.new(0, 0, 0)
-				TextStrokeTransparency = 0
-				TextXAlignment = Enum.TextXAlignment.Center
-				ZIndex = BASE_ZINDEX + 3
-				Text = self.name
-			}, allDrawings)
-
-			distance = createGuiLabel(container, {
-				TextSize = GLOBAL_SIZE
-				TextColor3 = self.colour
-				TextStrokeColor3 = Color3.new(0, 0, 0)
-				TextStrokeTransparency = 0
-				TextXAlignment = Enum.TextXAlignment.Center
-				ZIndex = BASE_ZINDEX + 3
-			}, allDrawings)
-		}
-		drawings.all = allDrawings
-
-		self.drawings = drawings
-		self.allDrawings = allDrawings
-		self.container = container
-		self.boxLines = boxLines
-		self.boxShadows = boxShadows
-
-		table.insert(self.drawings, self.allDrawingCache)
-	end
-
-	function npcESP:hideDrawings()
-		if (self.hidden) then
-			return
-		end
-		self.hidden = true
-		self.container.Visible = false
-	end
-
-	function npcESP:showDrawings()
-		if (not self.hidden) then
-			return
-		end
-		self.hidden = false
-		self.container.Visible = true
-	end
-
-	function npcESP:loop(settings, distance)
-		local useR15 = self.humanoid ~= nil and not self.ignoreR15
-		local goal, size = getBoundingBox(useR15 and self.humanoid or self.entity, useR15)
-
-		local vector2, onscreen = worldToViewPoint(goal.Position)
-		if (not onscreen) then
-			return self:hideDrawings()
-		end
-		self.hidden = false
-
-		local cframe = CFrame.new(goal.Position, currentCamera.CFrame.Position)
-
-		local x, y = -size.X / 2, size.Y / 2
-		local topright    = worldToViewPoint((cframe * CFrame.new(x, y, 0)).Position)
-		local bottomright = worldToViewPoint((cframe * CFrame.new(x, -y, 0)).Position)
-
-		local offset = Vector2.new(
-			math.max(topright.X - vector2.X, bottomright.X - vector2.X),
-			math.max((vector2.Y - topright.Y), (bottomright.Y - vector2.Y))
-		)
-
-		self:renderBox(vector2, offset, settings.box)
-		self:renderName(vector2, offset, settings.name)
-		self:renderDistance(vector2, offset, settings.distance, distance)
-		self:renderHealthbar(vector2, offset, settings.healthbar)
-	end
-
-	function npcESP:humanoidHealthChanged()
-		local humanoid = self.humanoid
-		local health = humanoid.Health
-		local maxHealth = humanoid.MaxHealth
-		local healthPercentage = health / maxHealth
-
-		self.health = health
-		self.maxHealth = maxHealth
-		self.healthPercentage = healthPercentage
-
-		self.drawings.healthBar.BackgroundColor3 = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), healthPercentage)
-	end
-
-	function npcESP:setupHumanoid(humanoid: Humanoid)
-		self.humanoid = humanoid
-		self:humanoidHealthChanged()
-
-		table.insert(self.connections, humanoid:GetPropertyChangedSignal('Health'):Connect(function()
-			self:humanoidHealthChanged()
-		end))
-	end
-
-	function npcESP:renderCornerBrackets(position, size)
-		local bracketSize = math.min(size.X, size.Y) * 0.2
-		local thick = 1
-
-		local function setLine(line, x, y, w, h)
-			line.Position = UDim2.new(0, x, 0, y)
-			line.Size = UDim2.new(0, w, 0, h)
-			line.Visible = true
-		end
-
-		local function setShadow(shadow, x, y, w, h)
-			shadow.Position = UDim2.new(0, x - 1, 0, y - 1)
-			shadow.Size = UDim2.new(0, w + 2, 0, h + 2)
-			shadow.Visible = true
-		end
-
-		-- Top-left
-		setLine(self.boxLines[1], 0, 0, bracketSize, thick)
-		setLine(self.boxLines[2], 0, 0, thick, bracketSize)
-		setShadow(self.boxShadows[1], -1, -1, bracketSize + 2, 3)
-		setShadow(self.boxShadows[2], -1, -1, 3, bracketSize + 2)
-
-		-- Top-right
-		if self.boxLines[3] and self.boxLines[4] then
-			setLine(self.boxLines[3], size.X - bracketSize, 0, bracketSize, thick)
-			setLine(self.boxLines[4], size.X - thick, 0, thick, bracketSize)
-		end
-		if self.boxShadows[3] and self.boxShadows[4] then
-			setShadow(self.boxShadows[3], size.X - bracketSize - 1, -1, bracketSize + 2, 3)
-			setShadow(self.boxShadows[4], size.X - 1, -1, 3, bracketSize + 2)
-		end
-	end
-
-	function npcESP:renderBox(vector2, offset, enabled)
-		if (not enabled) then
-			self.container.Visible = false
-			return
-		end
-
-		self.container.Visible = true
-		self.container.Position = UDim2.new(0, vector2.X - offset.X, 0, vector2.Y - offset.Y)
-		self.container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
-
-		self:renderCornerBrackets(vector2 - offset, offset * 2)
-	end
-
-	function npcESP:renderName(vector2, offset, enabled)
-		local name = self.drawings.name
-
-		if (not enabled) then
-			name.Visible = false
-			return
-		end
-
-		name.Visible = true
-		name.Size = UDim2.new(1, 60, 0, self.drawings.name.TextSize + 2)
-		name.Position = UDim2.new(0.5, 0, -0.15, 0)
-	end
-
-	function npcESP:renderDistance(vector2, offset, enabled, _distance)
-		local distance = self.drawings.distance
-
-		if (not enabled) then
-			distance.Visible = false
-			return
-		end
-
-		local magnitude = math.round(_distance or (currentCamera.CFrame.Position - self.entity:GetPivot().Position).Magnitude)
-
-		distance.Visible = true
-		distance.Size = UDim2.new(1, 60, 0, self.drawings.distance.TextSize + 2)
-		distance.Position = UDim2.new(0.5, 0, 1.05, 0)
-		distance.Text = `[{magnitude}]`
-	end
-
-	function npcESP:renderHealthbar(vector2, offset, enabled)
-		if (not enabled) then
-			self.drawings.healthBar.Visible = false
-			self.drawings.healthBackground.Visible = false
-			return
-		end
-
-		local healthBar = self.drawings.healthBar
-		local healthBackground = self.drawings.healthBackground
-
-		healthBar.Visible = true
-		healthBackground.Visible = true
-
-		local barWidth = 3
-		local barHeight = offset.Y * 2
-
-		healthBackground.Position = UDim2.new(0, -barWidth - 5, 0, 0)
-		healthBackground.Size = UDim2.new(0, barWidth, 1, 0)
-
-		local healthLength = barHeight * self.healthPercentage
-		healthBar.Position = UDim2.new(0, -barWidth - 5, 1, -healthLength)
-		healthBar.Size = UDim2.new(0, barWidth, 0, healthLength)
-	end
-
-	espLibrary.npcESP = npcESP
+local function worldToViewport(pos)
+    local sp, on = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(sp.X, sp.Y), on, sp.Z
 end
 
-return espLibrary, 3
+local playerESP = {
+    playerCache = {},
+    drawingCache = {},
+    childAddedConnections = {},
+    childRemovedConnections = {},
+}
+playerESP.__index = playerESP
+
+function playerESP.onChildAdded(fn) table.insert(playerESP.childAddedConnections, fn) end
+function playerESP.onChildRemoved(fn) table.insert(playerESP.childRemovedConnections, fn) end
+
+function playerESP.new(player)
+    local self = setmetatable({
+        player = player,
+        connections = {},
+        hidden = false,
+        current = nil,
+        drawings = nil,
+        allDrawings = nil,
+    }, playerESP)
+
+    local cache = playerESP.drawingCache[1]
+    if cache then
+        table.remove(playerESP.drawingCache, 1)
+        cache.name.Text = player.DisplayName
+        self.allDrawings = cache.all
+        self.drawings = cache
+    else
+        self:createWidget()
+    end
+
+    table.insert(self.connections, player.CharacterAdded:Connect(function(...)
+        return self:characterAdded(...)
+    end))
+    table.insert(self.connections, player.CharacterRemoving:Connect(function(...)
+        return self:characterRemoved(...)
+    end))
+
+    if player.Character then
+        self:characterAdded(player.Character, true)
+    end
+
+    playerESP.playerCache[player] = self
+    return self
+end
+
+function playerESP.remove(player)
+    local cache = playerESP.playerCache[player]
+    if not cache then return end
+    playerESP.playerCache[player] = nil
+    for _, conn in ipairs(cache.connections) do conn:Disconnect() end
+
+    for _, obj in ipairs(cache.allDrawings) do obj.Visible = false end
+    table.insert(playerESP.drawingCache, cache.drawings)
+end
+
+function playerESP:createWidget()
+    local container = Instance.new("Frame")
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.ZIndex = 2
+    container.Visible = false
+    container.Parent = Overlay
+
+    local box2D = make2DBox(container, Color3.new(1,1,1), Color3.new(0,0,0), 1)
+    local boxCorner = makeCornerBox(container, Color3.new(1,1,1), Color3.new(0,0,0), 1, 0.22)
+    local boxObj = { ["2D"] = box2D, Corner = boxCorner }
+
+    local health = createHealthBar(container, Color3.fromRGB(80,230,100))
+
+    local nameLbl = makeTextLabel(container, 10, 0.5, 1, 0.5, 0, Enum.TextXAlignment.Center)
+    nameLbl.Position = UDim2.new(0.5, 0, 0, -2)
+
+    local weaponLbl = makeTextLabel(container, 9, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
+    weaponLbl.Position = UDim2.new(0.5, 0, 1, 2)
+
+    local distLbl = makeTextLabel(container, 8, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
+    distLbl.Position = UDim2.new(0.5, 0, 1, 2)
+
+    local sideFlags = {}
+    for i = 1, 8 do
+        local lbl = makeTextLabel(Overlay, 9, 0, 0, 0, 0, Enum.TextXAlignment.Left)
+        lbl.Size = UDim2.new(0, 100, 0, 11)
+        lbl.Visible = false
+        sideFlags[i] = lbl
+    end
+
+    local drawings = {
+        container = container,
+        box = boxObj,
+        health = health,
+        name = nameLbl,
+        weapon = weaponLbl,
+        distance = distLbl,
+        sideFlags = sideFlags,
+        all = { container, health.hBg, health.gradBg, health.hpText, nameLbl, weaponLbl, distLbl },
+
+    }
+
+    for _, style in pairs(boxObj) do
+        for _, l in ipairs(style.lines) do table.insert(drawings.all, l) end
+        for _, s in ipairs(style.shadows) do table.insert(drawings.all, s) end
+    end
+    for _, lbl in ipairs(sideFlags) do table.insert(drawings.all, lbl) end
+
+    self.drawings = drawings
+    self.allDrawings = drawings.all
+end
+
+function playerESP:hideDrawings()
+    if self.hidden then return end
+    self.hidden = true
+    for _, obj in ipairs(self.allDrawings) do obj.Visible = false end
+end
+
+function playerESP:characterAdded(character, firstTime)
+    self.current = {
+        character = character,
+        active = false,
+        humanoid = character:FindFirstChildOfClass("Humanoid"),
+        rootPart = character:FindFirstChild("HumanoidRootPart"),
+        health = 0,
+        maxHealth = 0,
+        healthPercentage = 1,
+        weapon = nil,
+    }
+
+    table.insert(self.connections, character.ChildAdded:Connect(function(child)
+        self:childAdded(child)
+    end))
+    table.insert(self.connections, character.ChildRemoved:Connect(function(child)
+        self:childRemoved(child)
+    end))
+
+    if self.current.humanoid then
+        self:setupHumanoid(self.current.humanoid, firstTime)
+    end
+    if self.current.rootPart then
+        self.current.active = true
+    end
+end
+
+function playerESP:characterRemoved(character)
+    self.current = nil
+    self:hideDrawings()
+end
+
+function playerESP:childAdded(child)
+    if child:IsA("Humanoid") then
+        self.current.humanoid = child
+        self:setupHumanoid(child)
+    end
+    for _, fn in ipairs(playerESP.childAddedConnections) do
+        fn(self, child)
+    end
+end
+
+function playerESP:childRemoved(child)
+    if child == self.current.humanoid then
+        self.current.humanoid = nil
+        self.current.active = false
+        self:hideDrawings()
+    elseif child == self.current.rootPart then
+        self.current.rootPart = nil
+        self.current.active = false
+        self:hideDrawings()
+    end
+    for _, fn in ipairs(playerESP.childRemovedConnections) do
+        fn(self, child)
+    end
+end
+
+function playerESP:setupHumanoid(humanoid, firstTime)
+    local function updateHealth()
+        local health = humanoid.Health
+        local maxHealth = humanoid.MaxHealth
+        local pct = health / maxHealth
+        self.current.health = health
+        self.current.maxHealth = maxHealth
+        self.current.healthPercentage = pct
+
+        local color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), pct)
+        self.drawings.health.hFill.BackgroundColor3 = color
+        self.drawings.health.hGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.new(math.min(1, color.R+0.25), math.min(1, color.G+0.25), math.min(1, color.B+0.25))),
+            ColorSequenceKeypoint.new(1, color),
+        })
+        self.drawings.health.hpText.TextColor3 = color
+        self.drawings.health.hpText.Text = tostring(math.floor(health))
+    end
+    updateHealth()
+    table.insert(self.connections, humanoid:GetPropertyChangedSignal("Health"):Connect(updateHealth))
+    if firstTime then
+        for _, child in ipairs(self.current.character:GetChildren()) do
+            self:childAdded(child)
+        end
+    end
+end
+
+function playerESP:loop(settings, distance)
+    local current = self.current
+    if not current or not current.active or not current.rootPart then
+        self:hideDrawings()
+        return
+    end
+
+    local cframe, size = getBoundingBox(current.humanoid, true)
+    if not cframe then
+        self:hideDrawings()
+        return
+    end
+
+    local centerPos = cframe.Position
+    local vec2, onscreen = worldToViewport(centerPos)
+    if not onscreen then
+        self:hideDrawings()
+        return
+    end
+
+    local look = CFrame.new(centerPos, Camera.CFrame.Position)
+    local halfW = size.X / 2
+    local halfH = size.Y / 2
+    local topRight = worldToViewport((look * CFrame.new(halfW, halfH, 0)).Position)
+    local bottomRight = worldToViewport((look * CFrame.new(halfW, -halfH, 0)).Position)
+    local offsetX = math.max(topRight.X - vec2.X, bottomRight.X - vec2.X)
+    local offsetY = math.max((vec2.Y - topRight.Y), (bottomRight.Y - vec2.Y))
+    local offset = Vector2.new(offsetX, offsetY)
+
+    local alpha = 0
+
+    local container = self.drawings.container
+    container.Visible = true
+    container.Position = UDim2.new(0, vec2.X - offset.X, 0, vec2.Y - offset.Y)
+    container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
+
+    local boxEnabled = settings.box
+    if boxEnabled then
+        applyBoxStyle(self.drawings.box, "2D", alpha, Color3.new(1,1,1), true, 1, Color3.new(0,0,0))
+    else
+        for _, style in pairs(self.drawings.box) do
+            for _, l in ipairs(style.lines) do l.Visible = false end
+            for _, s in ipairs(style.shadows) do s.Visible = false end
+        end
+    end
+
+    local hpSettings = settings.healthbar
+    if hpSettings then
+        local pct = current.healthPercentage
+        local barW = 2
+        local barX = vec2.X - offset.X - barW - 3
+        local barY = vec2.Y - offset.Y
+        local barH = offset.Y * 2
+
+        local style = "Solid"
+        local health = self.drawings.health
+        if style == "Gradient" then
+            health.hBg.Visible = false
+            health.gradBg.Visible = true
+            health.gradMask.Visible = true
+            health.gradBg.Position = UDim2.new(0, barX, 0, barY)
+            health.gradBg.Size = UDim2.new(0, barW, 0, barH)
+            health.gradBg.BackgroundTransparency = alpha
+            health.gradMask.Size = UDim2.new(1, 0, 1 - pct, 0)
+            health.gradMask.BackgroundTransparency = alpha
+        else
+            health.gradBg.Visible = false
+            health.gradMask.Visible = false
+            health.hBg.Visible = true
+            health.hBg.Position = UDim2.new(0, barX, 0, barY)
+            health.hBg.Size = UDim2.new(0, barW, 0, barH)
+            health.hBg.BackgroundTransparency = alpha > 0 and 0.6 or 0
+            health.hFill.Size = UDim2.new(1, 0, pct, 0)
+            health.hFill.BackgroundTransparency = alpha
+        end
+
+        if settings.healthText ~= false then
+            health.hpText.Visible = true
+            health.hpText.Position = UDim2.new(0, barX - 2, 0, barY + barH * (1 - pct))
+            health.hpText.TextTransparency = alpha
+            health.hpText.TextSize = 8
+        else
+            health.hpText.Visible = false
+        end
+    else
+        local health = self.drawings.health
+        health.hBg.Visible = false
+        health.gradBg.Visible = false
+        health.gradMask.Visible = false
+        health.hpText.Visible = false
+    end
+
+    if settings.name then
+        local name = self.drawings.name
+        name.Visible = true
+        name.Text = self.player.DisplayName
+        name.TextColor3 = Color3.new(1,1,1)
+        name.TextSize = 10
+        name.TextTransparency = alpha
+        name.Position = UDim2.new(0.5, 0, 0, - (offset.Y + name.TextSize + 2))
+    else
+        self.drawings.name.Visible = false
+    end
+
+    if settings.weapon then
+        local weapon = self.drawings.weapon
+        weapon.Visible = true
+
+        local gunName = "None"
+        local char = self.current.character
+        if char then
+            for _, child in ipairs(char:GetChildren()) do
+                if child:IsA("Tool") then
+                    gunName = child.Name
+                    break
+                end
+            end
+        end
+        weapon.Text = gunName
+        weapon.TextColor3 = Color3.new(1,1,1)
+        weapon.TextSize = 9
+        weapon.TextTransparency = alpha
+        weapon.Position = UDim2.new(0.5, 0, 1, 2)
+    else
+        self.drawings.weapon.Visible = false
+    end
+
+    if settings.distance then
+        local dist = self.drawings.distance
+        dist.Visible = true
+        local mag = distance or (Camera.CFrame.Position - centerPos).Magnitude
+        local unit = "s"
+        local val = math.floor(mag)
+        dist.Text = val .. unit
+        dist.TextColor3 = Color3.new(1,1,1)
+        dist.TextSize = 8
+        dist.TextTransparency = alpha
+
+        local yOff = settings.weapon and 13 or 0
+        dist.Position = UDim2.new(0.5, 0, 1, 2 + yOff)
+    else
+        self.drawings.distance.Visible = false
+    end
+
+    for _, lbl in ipairs(self.drawings.sideFlags) do lbl.Visible = false end
+end
+
+local entityESP = {
+    entityCache = {},
+    drawingCache = {},
+}
+entityESP.__index = entityESP
+
+function entityESP.new(entity, settingName, name, color)
+    local self = setmetatable({
+        entity = entity,
+        settingName = settingName,
+        name = name or entity.Name,
+        color = color or Color3.new(1,1,1),
+        hidden = false,
+        connections = {},
+        drawings = nil,
+        allDrawings = nil,
+    }, entityESP)
+
+    local cache = entityESP.drawingCache[1]
+    if cache then
+        table.remove(entityESP.drawingCache, 1)
+        cache.name.Text = self.name
+        cache.name.Color = self.color
+        cache.box.Color = self.color
+        cache.distance.Color = self.color
+        self.allDrawings = cache.all
+        self.drawings = cache
+    else
+        self:createWidget()
+    end
+
+    table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
+        if child == entity and parent == nil then
+            self:remove()
+        end
+    end))
+
+    entityESP.entityCache[entity] = self
+    return self
+end
+
+function entityESP:remove()
+    entityESP.entityCache[self.entity] = nil
+    self:hideDrawings()
+    for _, conn in ipairs(self.connections) do conn:Disconnect() end
+    table.insert(entityESP.drawingCache, self.drawings)
+end
+
+function entityESP:createWidget()
+    local container = Instance.new("Frame")
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.ZIndex = 2
+    container.Visible = false
+    container.Parent = Overlay
+
+    local box2D = make2DBox(container, self.color, Color3.new(0,0,0), 1)
+    local boxCorner = makeCornerBox(container, self.color, Color3.new(0,0,0), 1, 0.22)
+    local boxObj = { ["2D"] = box2D, Corner = boxCorner }
+
+    local nameLbl = makeTextLabel(container, 10, 0.5, 1, 0.5, 0, Enum.TextXAlignment.Center)
+    nameLbl.Position = UDim2.new(0.5, 0, 0, -2)
+    nameLbl.TextColor3 = self.color
+
+    local distLbl = makeTextLabel(container, 8, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
+    distLbl.Position = UDim2.new(0.5, 0, 1, 2)
+    distLbl.TextColor3 = self.color
+
+    local drawings = {
+        container = container,
+        box = boxObj,
+        name = nameLbl,
+        distance = distLbl,
+        all = { container, nameLbl, distLbl },
+    }
+    for _, style in pairs(boxObj) do
+        for _, l in ipairs(style.lines) do table.insert(drawings.all, l) end
+        for _, s in ipairs(style.shadows) do table.insert(drawings.all, s) end
+    end
+
+    self.drawings = drawings
+    self.allDrawings = drawings.all
+end
+
+function entityESP:hideDrawings()
+    if self.hidden then return end
+    self.hidden = true
+    for _, obj in ipairs(self.allDrawings) do obj.Visible = false end
+end
+
+function entityESP:loop(settings, distance)
+    local entity = self.entity
+    if not entity or not entity.Parent then
+        self:hideDrawings()
+        return
+    end
+
+    local cframe, size = entity:GetBoundingBox()
+    if not cframe then
+        self:hideDrawings()
+        return
+    end
+
+    local centerPos = cframe.Position
+    local vec2, onscreen = worldToViewport(centerPos)
+    if not onscreen then
+        self:hideDrawings()
+        return
+    end
+
+    local look = CFrame.new(centerPos, Camera.CFrame.Position)
+    local halfW = size.X / 2
+    local halfH = size.Y / 2
+    local topRight = worldToViewport((look * CFrame.new(halfW, halfH, 0)).Position)
+    local bottomRight = worldToViewport((look * CFrame.new(halfW, -halfH, 0)).Position)
+    local offsetX = math.max(topRight.X - vec2.X, bottomRight.X - vec2.X)
+    local offsetY = math.max((vec2.Y - topRight.Y), (bottomRight.Y - vec2.Y))
+    local offset = Vector2.new(offsetX, offsetY)
+
+    local container = self.drawings.container
+    container.Visible = true
+    container.Position = UDim2.new(0, vec2.X - offset.X, 0, vec2.Y - offset.Y)
+    container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
+
+    if settings.box then
+        applyBoxStyle(self.drawings.box, "2D", 0, self.color, true, 1, Color3.new(0,0,0))
+    else
+        for _, style in pairs(self.drawings.box) do
+            for _, l in ipairs(style.lines) do l.Visible = false end
+            for _, s in ipairs(style.shadows) do s.Visible = false end
+        end
+    end
+
+    if settings.name then
+        local name = self.drawings.name
+        name.Visible = true
+        name.Text = self.name
+        name.TextColor3 = self.color
+        name.TextSize = 10
+        name.Position = UDim2.new(0.5, 0, 0, -(offset.Y + name.TextSize + 2))
+    else
+        self.drawings.name.Visible = false
+    end
+
+    if settings.distance then
+        local dist = self.drawings.distance
+        dist.Visible = true
+        local mag = distance or (Camera.CFrame.Position - centerPos).Magnitude
+        dist.Text = math.floor(mag) .. "s"
+        dist.TextColor3 = self.color
+        dist.TextSize = 8
+        dist.Position = UDim2.new(0.5, 0, 1, 2)
+    else
+        self.drawings.distance.Visible = false
+    end
+end
+
+local npcESP = {
+    npcCache = {},
+    drawingCache = {},
+}
+npcESP.__index = npcESP
+
+function npcESP.new(entity, settingName, name, color, ignoreR15)
+    local self = setmetatable({
+        entity = entity,
+        settingName = settingName,
+        name = name or entity.Name,
+        color = color or Color3.new(1,1,1),
+        ignoreR15 = ignoreR15 or false,
+        hidden = false,
+        connections = {},
+        humanoid = nil,
+        health = 0,
+        maxHealth = 0,
+        healthPercentage = 1,
+        drawings = nil,
+        allDrawings = nil,
+    }, npcESP)
+
+    local cache = npcESP.drawingCache[1]
+    if cache then
+        table.remove(npcESP.drawingCache, 1)
+        cache.name.Text = self.name
+        cache.name.Color = self.color
+        cache.box.Color = self.color
+        cache.distance.Color = self.color
+        self.allDrawings = cache.all
+        self.drawings = cache
+    else
+        self:createWidget()
+    end
+
+    local humanoid = entity:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid.Health > 0 then
+        self.humanoid = humanoid
+        table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
+            if child == entity and parent == nil then
+                self:remove()
+            end
+        end))
+        table.insert(self.connections, humanoid:GetPropertyChangedSignal("Health"):Connect(function()
+            if humanoid.Health <= 0 then
+                self:remove()
+            else
+                self:updateHealth(humanoid)
+            end
+        end))
+        self:updateHealth(humanoid)
+        npcESP.npcCache[entity] = self
+        return
+    end
+
+    local conn
+    conn = entity.ChildAdded:Connect(function(child)
+        if child:IsA("Humanoid") then
+            conn:Disconnect()
+            self.humanoid = child
+            table.insert(self.connections, entity.AncestryChanged:Connect(function(ch, parent)
+                if ch == entity and parent == nil then
+                    self:remove()
+                end
+            end))
+            table.insert(self.connections, child:GetPropertyChangedSignal("Health"):Connect(function()
+                if child.Health <= 0 then
+                    self:remove()
+                else
+                    self:updateHealth(child)
+                end
+            end))
+            self:updateHealth(child)
+            npcESP.npcCache[entity] = self
+        end
+    end)
+    table.insert(self.connections, conn)
+end
+
+function npcESP:remove()
+    npcESP.npcCache[self.entity] = nil
+    self:hideDrawings()
+    for _, conn in ipairs(self.connections) do conn:Disconnect() end
+    table.insert(npcESP.drawingCache, self.drawings)
+end
+
+function npcESP:createWidget()
+    local container = Instance.new("Frame")
+    container.BackgroundTransparency = 1
+    container.BorderSizePixel = 0
+    container.ZIndex = 2
+    container.Visible = false
+    container.Parent = Overlay
+
+    local box2D = make2DBox(container, self.color, Color3.new(0,0,0), 1)
+    local boxCorner = makeCornerBox(container, self.color, Color3.new(0,0,0), 1, 0.22)
+    local boxObj = { ["2D"] = box2D, Corner = boxCorner }
+
+    local health = createHealthBar(container, Color3.fromRGB(80,230,100))
+
+    local nameLbl = makeTextLabel(container, 10, 0.5, 1, 0.5, 0, Enum.TextXAlignment.Center)
+    nameLbl.Position = UDim2.new(0.5, 0, 0, -2)
+    nameLbl.TextColor3 = self.color
+
+    local distLbl = makeTextLabel(container, 8, 0.5, 0, 0.5, 1, Enum.TextXAlignment.Center)
+    distLbl.Position = UDim2.new(0.5, 0, 1, 2)
+    distLbl.TextColor3 = self.color
+
+    local drawings = {
+        container = container,
+        box = boxObj,
+        health = health,
+        name = nameLbl,
+        distance = distLbl,
+        all = { container, health.hBg, health.gradBg, health.hpText, nameLbl, distLbl },
+    }
+    for _, style in pairs(boxObj) do
+        for _, l in ipairs(style.lines) do table.insert(drawings.all, l) end
+        for _, s in ipairs(style.shadows) do table.insert(drawings.all, s) end
+    end
+
+    self.drawings = drawings
+    self.allDrawings = drawings.all
+end
+
+function npcESP:updateHealth(humanoid)
+    local health = humanoid.Health
+    local maxHealth = humanoid.MaxHealth
+    local pct = health / maxHealth
+    self.health = health
+    self.maxHealth = maxHealth
+    self.healthPercentage = pct
+    local color = Color3.new(1,0,0):Lerp(Color3.new(0,1,0), pct)
+    self.drawings.health.hFill.BackgroundColor3 = color
+    self.drawings.health.hGrad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.new(math.min(1, color.R+0.25), math.min(1, color.G+0.25), math.min(1, color.B+0.25))),
+        ColorSequenceKeypoint.new(1, color),
+    })
+    self.drawings.health.hpText.TextColor3 = color
+    self.drawings.health.hpText.Text = tostring(math.floor(health))
+end
+
+function npcESP:hideDrawings()
+    if self.hidden then return end
+    self.hidden = true
+    for _, obj in ipairs(self.allDrawings) do obj.Visible = false end
+end
+
+function npcESP:loop(settings, distance)
+    local entity = self.entity
+    if not entity or not entity.Parent then
+        self:hideDrawings()
+        return
+    end
+
+    local useR15 = self.humanoid and not self.ignoreR15
+    local cframe, size = getBoundingBox(useR15 and self.humanoid or entity, useR15)
+    if not cframe then
+        self:hideDrawings()
+        return
+    end
+
+    local centerPos = cframe.Position
+    local vec2, onscreen = worldToViewport(centerPos)
+    if not onscreen then
+        self:hideDrawings()
+        return
+    end
+
+    local look = CFrame.new(centerPos, Camera.CFrame.Position)
+    local halfW = size.X / 2
+    local halfH = size.Y / 2
+    local topRight = worldToViewport((look * CFrame.new(halfW, halfH, 0)).Position)
+    local bottomRight = worldToViewport((look * CFrame.new(halfW, -halfH, 0)).Position)
+    local offsetX = math.max(topRight.X - vec2.X, bottomRight.X - vec2.X)
+    local offsetY = math.max((vec2.Y - topRight.Y), (bottomRight.Y - vec2.Y))
+    local offset = Vector2.new(offsetX, offsetY)
+
+    local container = self.drawings.container
+    container.Visible = true
+    container.Position = UDim2.new(0, vec2.X - offset.X, 0, vec2.Y - offset.Y)
+    container.Size = UDim2.new(0, offset.X * 2, 0, offset.Y * 2)
+
+    if settings.box then
+        applyBoxStyle(self.drawings.box, "2D", 0, self.color, true, 1, Color3.new(0,0,0))
+    else
+        for _, style in pairs(self.drawings.box) do
+            for _, l in ipairs(style.lines) do l.Visible = false end
+            for _, s in ipairs(style.shadows) do s.Visible = false end
+        end
+    end
+
+    if settings.healthbar and self.humanoid then
+        local pct = self.healthPercentage
+        local barW = 2
+        local barX = vec2.X - offset.X - barW - 3
+        local barY = vec2.Y - offset.Y
+        local barH = offset.Y * 2
+
+        local health = self.drawings.health
+        health.hBg.Visible = true
+        health.gradBg.Visible = false
+        health.gradMask.Visible = false
+        health.hBg.Position = UDim2.new(0, barX, 0, barY)
+        health.hBg.Size = UDim2.new(0, barW, 0, barH)
+        health.hBg.BackgroundTransparency = 0
+        health.hFill.Size = UDim2.new(1, 0, pct, 0)
+        health.hFill.BackgroundTransparency = 0
+
+        if settings.healthText ~= false then
+            health.hpText.Visible = true
+            health.hpText.Position = UDim2.new(0, barX - 2, 0, barY + barH * (1 - pct))
+            health.hpText.TextTransparency = 0
+            health.hpText.TextSize = 8
+        else
+            health.hpText.Visible = false
+        end
+    else
+        local health = self.drawings.health
+        health.hBg.Visible = false
+        health.gradBg.Visible = false
+        health.gradMask.Visible = false
+        health.hpText.Visible = false
+    end
+
+    if settings.name then
+        local name = self.drawings.name
+        name.Visible = true
+        name.Text = self.name
+        name.TextColor3 = self.color
+        name.TextSize = 10
+        name.Position = UDim2.new(0.5, 0, 0, -(offset.Y + name.TextSize + 2))
+    else
+        self.drawings.name.Visible = false
+    end
+
+    if settings.distance then
+        local dist = self.drawings.distance
+        dist.Visible = true
+        local mag = distance or (Camera.CFrame.Position - centerPos).Magnitude
+        dist.Text = math.floor(mag) .. "s"
+        dist.TextColor3 = self.color
+        dist.TextSize = 8
+        dist.Position = UDim2.new(0.5, 0, 1, 2)
+    else
+        self.drawings.distance.Visible = false
+    end
+end
+
+local espLibrary = {
+    playerESP = playerESP,
+    entityESP = entityESP,
+    npcESP = npcESP,
+}
+
+return espLibrary
