@@ -241,11 +241,12 @@ do
 
 	function playerESP:humanoidHealthChanged()
 		local humanoid = self.current.humanoid
+		if not humanoid then return end
 		local health = humanoid.Health
 		local maxHealth = humanoid.MaxHealth
 		local healthPct = health / maxHealth
 
-		if self.current.rootPart and health > 0 then
+		if self.current.rootPart and health and health > 0 then
 			self.current.active = true
 		else
 			self:setNonActive()
@@ -340,7 +341,10 @@ do
 	-- =================== Main Loop ===================
 	function playerESP:loop(settings, distance)
 		local cur = self.current
-		if not cur or not cur.rootPart or not cur.humanoid or not cur.health or cur.health <= 0 then
+		if not cur or not cur.rootPart or not cur.humanoid then
+			return self:hideDrawings()
+		end
+		if not cur.health or cur.health <= 0 then
 			return self:hideDrawings()
 		end
 
