@@ -225,8 +225,6 @@ do
 		d.all = allDrawings
 		self.drawings = d
 		self.allDrawings = allDrawings
-
-		table.insert(self.drawings, playerESP.allDrawingCache) -- keep a pool reference
 	end
 
 	function playerESP:hideDrawings()
@@ -518,7 +516,7 @@ do
 				local seg = d.healthSegments[i]
 				if i <= filledSeg then
 					seg.Visible = true
-					local t = (i - 1) / (segments - 1)
+					local t = segments > 1 and (i - 1) / (segments - 1) or 0
 					seg.Color = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), t)
 					seg.Position = basePos + Vector2.new(1, 1 + (i - 1) * segHeight)
 					seg.Size = Vector2.new(1, segHeight)
@@ -658,8 +656,6 @@ do
 		d.all = allDrawings
 		self.drawings = d
 		self.allDrawings = allDrawings
-
-		table.insert(self.drawings, entityESP.allDrawingCache)
 	end
 
 	function entityESP:hideDrawings()
@@ -921,8 +917,6 @@ do
 		d.all = allDrawings
 		self.drawings = d
 		self.allDrawings = allDrawings
-
-		table.insert(self.drawings, npcESP.allDrawingCache)
 	end
 
 	function npcESP:hideDrawings()
@@ -1072,7 +1066,7 @@ do
 				local seg = d.healthSegments[i]
 				if i <= filledSeg then
 					seg.Visible = true
-					local t = (i - 1) / (segments - 1)
+					local t = segments > 1 and (i - 1) / (segments - 1) or 0
 					seg.Color = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), t)
 					seg.Position = basePos + Vector2.new(1, 1 + (i - 1) * segHeight)
 					seg.Size = Vector2.new(1, segHeight)
