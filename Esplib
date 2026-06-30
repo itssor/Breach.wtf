@@ -2,9 +2,9 @@ local cloneref          = cloneref or function(...) return ...; end;
 local compareinstances  = compareinstances or rawequal;
 
 local runService        = cloneref(game:GetService('RunService'));
-
 local currentCamera     = cloneref(workspace.CurrentCamera);
-local playerGui         = cloneref(game.Players.LocalPlayer:WaitForChild('PlayerGui'));
+local Players           = cloneref(game:GetService('Players'));
+local playerGui         = cloneref(Players.LocalPlayer:WaitForChild('PlayerGui'));
 
 -- Create ScreenGui for all ESP elements
 local espGui = Instance.new('ScreenGui');
