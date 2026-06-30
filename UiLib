@@ -4839,7 +4839,7 @@ local Library = {
                         end
                     })
 
-                    if Self.Watermark then
+                    if rawget(Self, "Watermark") then
                         MenuSection:Toggle({
                             Name = "Watermark",
                             Flag = "Watermark",
@@ -4850,7 +4850,7 @@ local Library = {
                         })
                     end
 
-                    if Self.KeybindList then 
+                    if rawget(Self, "KeybindList") then
                         MenuSection:Toggle({
                             Name = "Keybind list",
                             Flag = "Keybind list",
