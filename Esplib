@@ -5,6 +5,19 @@ local runService        = cloneref(game:GetService('RunService'));
 
 local currentCamera     = cloneref(workspace.CurrentCamera);
 
+-- ====== CUSTOM FONT SUPPORT ======
+local CustomFont = nil;
+local function loadCustomFont()
+	if not CustomFont then
+		local success, result = pcall(function()
+			return Font.new("https://github.com/sametexe001/luas/raw/refs/heads/main/fonts/proggy-tiny.ttf");
+		end);
+		if success and result then
+			CustomFont = result;
+		end;
+	end;
+	return CustomFont;
+end;
 
 local createDrawing           = function(_type, properties, ...)
       local drawing = Drawing.new(_type);
@@ -130,17 +143,19 @@ do
 
       function playerESP:createDrawingCache()
             local allDrawings = {};
+            local customFont = loadCustomFont();
+            
             local drawings = {
                   box = createDrawing('Square', {
                         Visible           = false;
-                        Thickness         = 1;
-                        Color             = Color3.new(1, 1, 1);
+                        Thickness         = 2;
+                        Color             = Color3.new(0.2, 0.8, 1);
                         Filled            = false;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 2;
                   }, allDrawings);
                   boxOutline = createDrawing('Square', {
                         Visible           = false;
-                        Thickness         = 2;
+                        Thickness         = 4;
                         Color             = Color3.new(0, 0, 0);
                         Filled            = false;
                         ZIndex            = BASE_ZINDEX;
@@ -150,15 +165,15 @@ do
                         Visible           = false;
                         Thickness         = 1;
                         Filled            = true;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 2;
                   }, allDrawings);
                   healthBackground = createDrawing('Square', {
                         Visible           = false;
-                        Color             = Color3.new(0.239215, 0.239215, 0.239215);
-                        Transparency      = 0.7;
+                        Color             = Color3.new(0.15, 0.15, 0.15);
+                        Transparency      = 0.3;
                         Thickness         = 1;
                         Filled            = true;
-                        ZIndex            = BASE_ZINDEX;
+                        ZIndex            = BASE_ZINDEX + 1;
                   }, allDrawings);
 
                   name = createDrawing('Text', {
@@ -167,11 +182,11 @@ do
                         Outline           = true;
                         OutlineColor      = Color3.new(0, 0, 0);
                         Color             = Color3.new(1, 1, 1);
-                        Transparency      = 1;
+                        Transparency      = 0;
                         Size              = GLOBAL_SIZE;
                         Text              = self.player.DisplayName;
                         Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 3;
                   }, allDrawings);
                   distance = createDrawing('Text', {
                         Visible           = false;
@@ -179,10 +194,10 @@ do
                         Outline           = true;
                         OutlineColor      = Color3.new(0, 0, 0);
                         Color             = Color3.new(1, 1, 1);
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
+                        Transparency      = 0;
+                        Size              = GLOBAL_SIZE - 2;
                         Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 3;
                   }, allDrawings);
                   weapon = createDrawing('Text', {
                         Visible           = false;
@@ -190,10 +205,10 @@ do
                         Outline           = true;
                         OutlineColor      = Color3.new(0, 0, 0);
                         Color             = Color3.new(1, 1, 1);
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
+                        Transparency      = 0;
+                        Size              = GLOBAL_SIZE - 2;
                         Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 3;
                   }, allDrawings);
             };
             drawings.all = allDrawings;
@@ -241,7 +256,7 @@ do
             self.current.maxHealth        = maxHealth;
             self.current.healthPercentage = healthPercentage;
 
-            self.drawings.healthBar.Color = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), healthPercentage);
+            self.drawings.healthBar.Color = Color3.new(0, 1, 0):Lerp(Color3.new(1, 0, 0), 1 - healthPercentage);
       end;
       function playerESP:setupHumanoid(humanoid: Humanoid, firstTime)
 
@@ -398,7 +413,7 @@ do
             end;
             
             name.Visible      = true;
-            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size);
+            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size + 4);
       end;
       function playerESP:renderDistance(vector2, offset, enabled, _distance)
             local distance = self.drawings.distance;
@@ -412,7 +427,7 @@ do
             local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.current.rootPart.Position).Magnitude );
             
             distance.Visible  = true;
-            distance.Position = vector2 + Vector2.new(0, offset.Y + Yoffset);
+            distance.Position = vector2 + Vector2.new(0, offset.Y + Yoffset + 4);
             distance.Text     = `[{magnitude}]`;
       end;
       function playerESP:renderWeapon(vector2, offset, enabled)
@@ -424,7 +439,7 @@ do
             end;
 
             weapon.Visible  = true;
-            weapon.Position = vector2 + Vector2.new(0, offset.Y);
+            weapon.Position = vector2 + Vector2.new(0, offset.Y + 4);
             weapon.Text     = self.current.weapon and string.lower(self.current.weapon.Name) or 'none';
       end;
       function playerESP:renderHealthbar(vector2, offset, enabled)
@@ -440,12 +455,12 @@ do
             healthBar.Visible = true;
             healthBackground.Visible = true;
 
-            local basePosition = vector2 - offset - Vector2.new(5, 0);
-            local baseSize = Vector2.new(3, offset.Y * 2);
+            local basePosition = vector2 - offset - Vector2.new(8, 0);
+            local baseSize = Vector2.new(4, offset.Y * 2);
 
             local healthLength = (baseSize.Y - 2) * self.current.healthPercentage;
             local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
-            local healthSize = Vector2.new(1, healthLength);
+            local healthSize = Vector2.new(2, healthLength);
 
             healthBackground.Position     = basePosition;
             healthBackground.Size         = baseSize;
@@ -535,14 +550,14 @@ do
                   box = createDrawing('Square', {
                         Visible           = false;
                         Filled            = false;
-                        Thickness         = 1;
+                        Thickness         = 2;
                         Color             = self.colour;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 2;
                   }, allDrawings);
                   boxOutline = createDrawing('Square', {
                         Visible           = false;
                         Filled            = false;
-                        Thickness         = 1;
+                        Thickness         = 4;
                         Color             = Color3.new(0, 0, 0);
                         ZIndex            = BASE_ZINDEX;
                   }, allDrawings);
@@ -553,11 +568,11 @@ do
                         Outline           = true;
                         OutlineColor      = Color3.new(0, 0, 0);
                         Color             = self.colour;
-                        Transparency      = 1;
+                        Transparency      = 0;
                         Size              = GLOBAL_SIZE;
                         Text              = self.name;
                         Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
+                        ZIndex            = BASE_ZINDEX + 3;
                   }, allDrawings);
                   distance = createDrawing('Text', {
                         Visible           = false;
@@ -565,10 +580,25 @@ do
                         Outline           = true;
                         OutlineColor      = Color3.new(0, 0, 0);
                         Color             = self.colour;
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
+                        Transparency      = 0;
+                        Size              = GLOBAL_SIZE - 2;
                         Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
+                        ZIndex            = BASE_ZINDEX + 3;
+                  }, allDrawings);
+
+                  healthBar = createDrawing('Square', {
+                        Visible           = false;
+                        Thickness         = 1;
+                        Filled            = true;
+                        ZIndex            = BASE_ZINDEX + 2;
+                  }, allDrawings);
+                  healthBackground = createDrawing('Square', {
+                        Visible           = false;
+                        Color             = Color3.new(0.15, 0.15, 0.15);
+                        Transparency      = 0.3;
+                        Thickness         = 1;
+                        Filled            = true;
+                        ZIndex            = BASE_ZINDEX + 1;
                   }, allDrawings);
             };
             drawings.all = allDrawings;
@@ -611,8 +641,9 @@ do
             self:renderBox(vector2, offset, settings.box);
             self:renderName(vector2, offset, settings.name);
             self:renderDistance(vector2, offset, settings.distance, distance);
+            self:renderHealthbar(vector2, offset, settings.healthbar);
       end;
-      
+
       -- render functions
       function entityESP:renderBox(vector2, offset, enabled)
             local drawings = self.drawings;
@@ -646,7 +677,7 @@ do
             end;
             
             name.Visible      = true;
-            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size);
+            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size + 4);
       end;
       function entityESP:renderDistance(vector2, offset, enabled, _distance)
             local distance = self.drawings.distance;
@@ -659,9 +690,36 @@ do
             local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.entity:GetPivot().Position).Magnitude );
             
             distance.Visible  = true;
-            distance.Position = vector2 + Vector2.new(0, offset.Y);
+            distance.Position = vector2 + Vector2.new(0, offset.Y + 4);
             distance.Text     = `[{magnitude}]`;
       end;
+      function entityESP:renderHealthbar(vector2, offset, enabled)
+            if (not enabled) then
+                  self.drawings.healthBar.Visible = false;
+                  self.drawings.healthBackground.Visible = false;
+                  return;
+            end;
+
+            local healthBar         = self.drawings.healthBar;
+            local healthBackground  = self.drawings.healthBackground;
+
+            healthBar.Visible = true;
+            healthBackground.Visible = true;
+
+            local basePosition = vector2 - offset - Vector2.new(8, 0);
+            local baseSize = Vector2.new(4, offset.Y * 2);
+
+            local healthLength = (baseSize.Y - 2) * self.healthPercentage;
+            local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
+            local healthSize = Vector2.new(2, healthLength);
+
+            healthBackground.Position     = basePosition;
+            healthBackground.Size         = baseSize;
+
+            healthBar.Position            = healthPosition;
+            healthBar.Size                = healthSize;
+      end;
+
 
       espLibrary.entityESP = entityESP;
 end;
@@ -673,6 +731,9 @@ do
             drawingCache = {};
             allDrawingCache = {};
 
+            childAddedConnections = {};
+            childRemovedConnections = {};
+
             drawingAddedConnections = {};
       };
       npcESP.__index = npcESP;
@@ -682,16 +743,16 @@ do
             table.insert(npcESP.drawingAddedConnections, _func);
       end;
 
-      npcESP.new = function(entity: Model, settingName:string, name: string?, colour: Color3?, ignoreR15)
+      npcESP.new = function(entity: Model, name: string?, colour: Color3?, ignoreR15: boolean?)
             local self = setmetatable({
                   entity      = entity;
-                  settingName = settingName;
-                  
                   name        = name or entity.Name;
                   colour      = colour or Color3.new(1, 1, 1);
-                  hidden      = false;
+                  
+                  humanoid    = entity:FindFirstChildOfClass('Humanoid');
                   ignoreR15   = ignoreR15 or false;
-
+                  
+                  hidden      = false;
                   connections = {};
             }, npcESP);
 
@@ -699,14 +760,14 @@ do
             if (cache) then
                   table.remove(npcESP.drawingCache, 1);
                   
-                  cache.name.Text         = self.name;
+                  cache.name.Text = self.name;
+                  
+                  cache.name.Color = self.colour;
+                  cache.box.Color = self.colour;
+                  cache.distance.Color = self.colour;
 
-                  cache.name.Color        = self.colour;
-                  cache.box.Color         = self.colour;
-                  cache.distance.Color    = self.colour;
-
-                  self.allDrawings        = cache.all;
-                  self.drawings           = cache;
+                  self.allDrawings = cache.all;
+                  self.drawings = cache;
             else
                   self:createDrawingCache();
             end;
@@ -715,47 +776,17 @@ do
                   npcESP.drawingAddedConnections[i](self);
             end;
 
-            local humanoid = entity:FindFirstChildOfClass('Humanoid');
-            if (humanoid and humanoid.Health > 0) then
-                  
-                  self.humanoid = humanoid;
-                  table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
-                        if (child == entity and parent == nil) then
-                              return self:remove();
-                        end;
-                  end));
-                  table.insert(self.connections, humanoid:GetPropertyChangedSignal('Health'):Connect(function()
-                        if (humanoid.Health <= 0) then
-                              return self:remove();
-                        end;
-                  end));
-
-                  npcESP.npcCache[entity] = self;
-                  self:setupHumanoid(humanoid);
-                  return;
+            if (self.humanoid) then
+                  self:setupHumanoid(self.humanoid);
             end;
 
-
-            local childAdded_connection;
-            childAdded_connection = entity.ChildAdded:Connect(function(child)
-                  if (child.ClassName ~= 'Humanoid') then
-                        return;
+            table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
+                  if (child == entity and parent == nil) then
+                        return self:remove();
                   end;
+            end));
 
-
-                  self.humanoid = child;
-                  table.insert(self.connections, entity.AncestryChanged:Connect(function(child, parent)
-                        if (child == entity and parent == nil) then
-                              return self:remove();
-                        end;
-                  end));
-
-                  npcESP.npcCache[entity] = self;
-                  self:setupHumanoid(child);
-
-
-                  childAdded_connection:Disconnect();
-            end);
+            npcESP.npcCache[entity] = self;
       end;
       function npcESP:remove()
             npcESP.npcCache[self.entity] = nil;
@@ -768,6 +799,7 @@ do
                   self.connections[i]:Disconnect();
             end;
       end;
+
       function npcESP:createDrawingCache()
             local allDrawings = {};
 
@@ -775,14 +807,14 @@ do
                   box = createDrawing('Square', {
                         Visible           = false;
                         Filled            = false;
-                        Thickness         = 1;
+                        Thickness         = 2;
                         Color             = self.colour;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 2;
                   }, allDrawings);
                   boxOutline = createDrawing('Square', {
                         Visible           = false;
                         Filled            = false;
-                        Thickness         = 1;
+                        Thickness         = 4;
                         Color             = Color3.new(0, 0, 0);
                         ZIndex            = BASE_ZINDEX;
                   }, allDrawings);
@@ -793,11 +825,11 @@ do
                         Outline           = true;
                         OutlineColor      = Color3.new(0, 0, 0);
                         Color             = self.colour;
-                        Transparency      = 1;
+                        Transparency      = 0;
                         Size              = GLOBAL_SIZE;
                         Text              = self.name;
                         Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
+                        ZIndex            = BASE_ZINDEX + 3;
                   }, allDrawings);
                   distance = createDrawing('Text', {
                         Visible           = false;
@@ -805,25 +837,25 @@ do
                         Outline           = true;
                         OutlineColor      = Color3.new(0, 0, 0);
                         Color             = self.colour;
-                        Transparency      = 1;
-                        Size              = GLOBAL_SIZE;
+                        Transparency      = 0;
+                        Size              = GLOBAL_SIZE - 2;
                         Font              = GLOBAL_FONT;
-                        ZIndex            = BASE_ZINDEX;
+                        ZIndex            = BASE_ZINDEX + 3;
                   }, allDrawings);
 
                   healthBar = createDrawing('Square', {
                         Visible           = false;
                         Thickness         = 1;
                         Filled            = true;
-                        ZIndex            = BASE_ZINDEX + 1;
+                        ZIndex            = BASE_ZINDEX + 2;
                   }, allDrawings);
                   healthBackground = createDrawing('Square', {
                         Visible           = false;
-                        Color             = Color3.new(0.239215, 0.239215, 0.239215);
-                        Transparency      = 0.7;
+                        Color             = Color3.new(0.15, 0.15, 0.15);
+                        Transparency      = 0.3;
                         Thickness         = 1;
                         Filled            = true;
-                        ZIndex            = BASE_ZINDEX;
+                        ZIndex            = BASE_ZINDEX + 1;
                   }, allDrawings);
             };
             drawings.all = allDrawings;
@@ -883,7 +915,7 @@ do
             self.maxHealth          = maxHealth;
             self.healthPercentage   = healthPercentage;
 
-            self.drawings.healthBar.Color = Color3.new(1, 0, 0):Lerp(Color3.new(0, 1, 0), healthPercentage);
+            self.drawings.healthBar.Color = Color3.new(0, 1, 0):Lerp(Color3.new(1, 0, 0), 1 - healthPercentage);
       end;
       function npcESP:setupHumanoid(humanoid: Humanoid)
 
@@ -928,7 +960,7 @@ do
             end;
             
             name.Visible      = true;
-            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size);
+            name.Position     = vector2 - Vector2.new(0, offset.Y + name.Size + 4);
       end;
       function npcESP:renderDistance(vector2, offset, enabled, _distance)
             local distance = self.drawings.distance;
@@ -941,7 +973,7 @@ do
             local magnitude   = math.round( _distance or (currentCamera.CFrame.Position - self.entity:GetPivot().Position).Magnitude );
             
             distance.Visible  = true;
-            distance.Position = vector2 + Vector2.new(0, offset.Y);
+            distance.Position = vector2 + Vector2.new(0, offset.Y + 4);
             distance.Text     = `[{magnitude}]`;
       end;
       function npcESP:renderHealthbar(vector2, offset, enabled)
@@ -957,12 +989,12 @@ do
             healthBar.Visible = true;
             healthBackground.Visible = true;
 
-            local basePosition = vector2 - offset - Vector2.new(5, 0);
-            local baseSize = Vector2.new(3, offset.Y * 2);
+            local basePosition = vector2 - offset - Vector2.new(8, 0);
+            local baseSize = Vector2.new(4, offset.Y * 2);
 
             local healthLength = (baseSize.Y - 2) * self.healthPercentage;
             local healthPosition = basePosition + Vector2.new(1, 1 + (baseSize.Y - 2 - healthLength));
-            local healthSize = Vector2.new(1, healthLength);
+            local healthSize = Vector2.new(2, healthLength);
 
             healthBackground.Position     = basePosition;
             healthBackground.Size         = baseSize;
