@@ -340,7 +340,7 @@ do
 	-- =================== Main Loop ===================
 	function playerESP:loop(settings, distance)
 		local cur = self.current
-		if not cur or not cur.rootPart or not cur.humanoid or cur.health <= 0 then
+		if not cur or not cur.rootPart or not cur.humanoid or not cur.health or cur.health <= 0 then
 			return self:hideDrawings()
 		end
 
